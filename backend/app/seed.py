@@ -380,8 +380,18 @@ async def seed_charms(session: AsyncSession) -> None:
 
     # ---- Fields ----
     def _f(
-        eid, name, label, desc, ftype, sort, *, required=True, allowed=None, unit=None, llm=None
-    ):
+        eid: UUID,
+        name: str,
+        label: str,
+        desc: str,
+        ftype: str,
+        sort: int,
+        *,
+        required: bool = True,
+        allowed: list[str] | None = None,
+        unit: str | None = None,
+        llm: str | None = None,
+    ) -> ExtractionField:
         return ExtractionField(
             entity_type_id=eid,
             name=name,

@@ -87,19 +87,19 @@ def _prepare_metadata() -> None:
     # Isso garante que as tabelas sejam registradas antes de serem referenciadas
 
     # 1. Profile primeiro (sem dependências)
-    Profile.__table__  # type: ignore  # noqa: B018
+    Profile.__table__  # noqa: B018
 
     # 2. Project (depende de Profile)
-    Project.__table__  # type: ignore  # noqa: B018
-    ProjectMember.__table__  # type: ignore  # noqa: B018
+    Project.__table__  # noqa: B018
+    ProjectMember.__table__  # noqa: B018
 
     # 3. Article (depende de Project)
-    Article.__table__  # type: ignore  # noqa: B018
-    ArticleFile.__table__  # type: ignore  # noqa: B018
-    ArticleAuthor.__table__  # type: ignore  # noqa: B018
-    ArticleAuthorLink.__table__  # type: ignore  # noqa: B018
-    ArticleSyncRun.__table__  # type: ignore  # noqa: B018
-    ArticleSyncEvent.__table__  # type: ignore  # noqa: B018
+    Article.__table__  # noqa: B018
+    ArticleFile.__table__  # noqa: B018
+    ArticleAuthor.__table__  # noqa: B018
+    ArticleAuthorLink.__table__  # noqa: B018
+    ArticleSyncRun.__table__  # noqa: B018
+    ArticleSyncEvent.__table__  # noqa: B018
 
     # 4. Extraction models (dependem de Article, Project, etc.)
     # Apenas acessar o metadata já força o processamento de todos

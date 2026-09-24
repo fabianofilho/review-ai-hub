@@ -6,7 +6,7 @@ Models for systematic review projects and members.
 
 from datetime import datetime
 from enum import Enum as PyEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from sqlalchemy import Boolean, DateTime, ForeignKey, Index, String, Text, UniqueConstraint
@@ -67,7 +67,7 @@ class Project(BaseModel):
         nullable=False,
     )
 
-    settings: Mapped[dict] = mapped_column(
+    settings: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         nullable=False,
         default={"blind_mode": False},
@@ -79,9 +79,9 @@ class Project(BaseModel):
     review_title: Mapped[str | None] = mapped_column(Text, nullable=True)
     condition_studied: Mapped[str | None] = mapped_column(String, nullable=True)
     review_rationale: Mapped[str | None] = mapped_column(Text, nullable=True)
-    review_keywords: Mapped[dict] = mapped_column(JSONB, default=[], nullable=False)
-    eligibility_criteria: Mapped[dict] = mapped_column(JSONB, default={}, nullable=False)
-    study_design: Mapped[dict] = mapped_column(JSONB, default={}, nullable=False)
+    review_keywords: Mapped[list[str]] = mapped_column(JSONB, default=[], nullable=False)
+    eligibility_criteria: Mapped[dict[str, Any]] = mapped_column(JSONB, default={}, nullable=False)
+    study_design: Mapped[dict[str, Any]] = mapped_column(JSONB, default={}, nullable=False)
     review_context: Mapped[str | None] = mapped_column(Text, nullable=True)
     search_strategy: Mapped[str | None] = mapped_column(Text, nullable=True)
 
@@ -91,7 +91,7 @@ class Project(BaseModel):
     )
 
     # PICOTS configuration for predictive model reviews
-    picots_config_ai_review: Mapped[dict | None] = mapped_column(
+    picots_config_ai_review: Mapped[dict[str, Any] | None] = mapped_column(
         JSONB,
         nullable=True,
         default={
@@ -191,7 +191,7 @@ class ProjectMember(BaseModel):
         nullable=False,
     )
 
-    permissions: Mapped[dict] = mapped_column(
+    permissions: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default={"can_export": False},
         nullable=False,

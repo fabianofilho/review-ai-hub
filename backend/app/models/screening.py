@@ -7,6 +7,7 @@ conflicts, and AI screening runs.
 
 from datetime import datetime
 from enum import Enum as PyEnum
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from sqlalchemy import (
@@ -24,6 +25,9 @@ from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, BaseModel, PostgreSQLEnumType, UUIDMixin
+
+if TYPE_CHECKING:
+    from app.models.extraction import AISuggestion
 
 # =============================================================================
 # PYTHON ENUMS (mirrors PostgreSQL ENUM types)
@@ -99,7 +103,7 @@ class ScreeningConfig(BaseModel):
     )
 
     # Array of {id, type: "inclusion"|"exclusion", label, description}
-    criteria: Mapped[dict] = mapped_column(
+    criteria: Mapped[list[dict[str, Any]]] = mapped_column(
         JSONB,
         default=[],
         nullable=False,
@@ -178,7 +182,7 @@ class ScreeningDecision(BaseModel):
     )
 
     # Per-criterion boolean responses: {criterion_id: true/false}
-    criteria_responses: Mapped[dict] = mapped_column(
+    criteria_responses: Mapped[dict[str, Any]] = mapped_column(
         JSONB,
         default={},
         nullable=False,
@@ -329,8 +333,8 @@ class ScreeningRun(Base, UUIDMixin):
         nullable=False,
     )
 
-    parameters: Mapped[dict] = mapped_column(JSONB, default={}, nullable=False)
-    results: Mapped[dict] = mapped_column(JSONB, default={}, nullable=False)
+    parameters: Mapped[dict[str, Any]] = mapped_column(JSONB, default={}, nullable=False)
+    results: Mapped[dict[str, Any]] = mapped_column(JSONB, default={}, nullable=False)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     started_at: Mapped[datetime | None] = mapped_column(
@@ -355,7 +359,7 @@ class ScreeningRun(Base, UUIDMixin):
     )
 
     # Relationships
-    suggestions: Mapped[list] = relationship(
+    suggestions: Mapped[list["AISuggestion"]] = relationship(
         "AISuggestion",
         foreign_keys="AISuggestion.screening_run_id",
         cascade="all, delete-orphan",

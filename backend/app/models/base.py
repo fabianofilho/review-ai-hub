@@ -56,7 +56,7 @@ POSTGRESQL_ENUM_VALUES: dict[str, list[str]] = {
 }
 
 
-class PostgreSQLEnumType(TypeDecorator):
+class PostgreSQLEnumType(TypeDecorator[str]):
     """
     TypeDecorator que força o uso correto do tipo ENUM nativo do PostgreSQL.
 
@@ -119,10 +119,13 @@ class PostgreSQLEnumType(TypeDecorator):
             return None
         # Se for um Enum Python, pegar o value
         if isinstance(value, PyEnum):
-            return value.value
+            # The mapped enums are (str, Enum) subclasses mirroring PostgreSQL
+            # ENUM labels, so their values are strings.
+            enum_value: str = value.value
+            return enum_value
         return str(value)
 
-    def process_result_value(self, value: Any, dialect: Any) -> str | None:  # noqa: ARG002
+    def process_result_value(self, value: str | None, dialect: Any) -> str | None:  # noqa: ARG002
         """Processa o valor recebido do banco."""
         # Retorna como string para compatibilidade com Enum Python
         return value
@@ -154,7 +157,9 @@ class Base(DeclarativeBase):
     metadata = MetaData(naming_convention=_naming_convention)
 
     # Default schema for all application tables
-    __table_args__: dict[str, Any] = {
+    # Subclasses may override it with the tuple form (constraints followed by
+    # an options dict), so the declaration accepts both shapes.
+    __table_args__: dict[str, Any] | tuple[Any, ...] = {
         "schema": "public",
     }
 
