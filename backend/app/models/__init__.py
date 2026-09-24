@@ -11,12 +11,6 @@ IMPORTANTE: A ordem de importação importa!
 """
 
 # Base models primeiro
-from app.models.base import Base, BaseModel, TimestampMixin, UUIDMixin
-
-# Modelos sem dependências (ou com dependências mínimas)
-from app.models.user import Profile
-from app.models.project import Project, ProjectMember, ProjectMemberRole, ReviewType
-
 # Modelos que dependem dos anteriores
 from app.models.article import Article, ArticleFile, FileRole
 from app.models.article_author import (
@@ -25,6 +19,22 @@ from app.models.article_author import (
     ArticleSyncEvent,
     ArticleSyncRun,
 )
+from app.models.assessment import (
+    AIAssessment,
+    AIAssessmentConfig,
+    AIAssessmentPrompt,
+    AIAssessmentRun,
+    AssessmentEvidence,
+    AssessmentInstance,
+    AssessmentInstrument,
+    AssessmentItem,
+    AssessmentResponse,
+    AssessmentSource,
+    AssessmentStatus,
+    ProjectAssessmentInstrument,
+    ProjectAssessmentItem,
+)
+from app.models.base import Base, BaseModel, TimestampMixin, UUIDMixin
 from app.models.extraction import (
     AISuggestion,
     ExtractedValue,
@@ -43,21 +53,8 @@ from app.models.extraction import (
     ProjectExtractionTemplate,
     SuggestionStatus,
 )
-from app.models.assessment import (
-    AIAssessment,
-    AIAssessmentConfig,
-    AIAssessmentPrompt,
-    AIAssessmentRun,
-    AssessmentEvidence,
-    AssessmentInstance,
-    AssessmentInstrument,
-    AssessmentItem,
-    AssessmentResponse,
-    AssessmentSource,
-    AssessmentStatus,
-    ProjectAssessmentInstrument,
-    ProjectAssessmentItem,
-)
+from app.models.integration import ZoteroIntegration
+from app.models.project import Project, ProjectMember, ProjectMemberRole, ReviewType
 from app.models.screening import (
     ScreeningConfig,
     ScreeningConflict,
@@ -67,32 +64,35 @@ from app.models.screening import (
     ScreeningPhase,
     ScreeningRun,
 )
-from app.models.integration import ZoteroIntegration
-from app.models.user_api_key import UserAPIKey, SUPPORTED_PROVIDERS
+
+# Modelos sem dependências (ou com dependências mínimas)
+from app.models.user import Profile
+from app.models.user_api_key import SUPPORTED_PROVIDERS, UserAPIKey
+
 
 # Força o registro de todas as tabelas no metadata
 # Isso garante que todas as foreign keys sejam resolvidas corretamente
 def _prepare_metadata() -> None:
     """
     Prepara o metadata do SQLAlchemy registrando todas as tabelas.
-    
+
     Isso garante que todas as foreign keys sejam resolvidas corretamente,
     mesmo quando há dependências circulares entre modelos.
-    
+
     A estratégia é forçar o processamento de cada modelo na ordem correta
     acessando seus atributos de tabela, garantindo que todas as foreign keys
     sejam resolvidas antes de processar modelos dependentes.
     """
     # Forçar o processamento de cada modelo na ordem de dependência
     # Isso garante que as tabelas sejam registradas antes de serem referenciadas
-    
+
     # 1. Profile primeiro (sem dependências)
     Profile.__table__  # type: ignore
-    
+
     # 2. Project (depende de Profile)
     Project.__table__  # type: ignore
     ProjectMember.__table__  # type: ignore
-    
+
     # 3. Article (depende de Project)
     Article.__table__  # type: ignore
     ArticleFile.__table__  # type: ignore
@@ -100,10 +100,11 @@ def _prepare_metadata() -> None:
     ArticleAuthorLink.__table__  # type: ignore
     ArticleSyncRun.__table__  # type: ignore
     ArticleSyncEvent.__table__  # type: ignore
-    
+
     # 4. Extraction models (dependem de Article, Project, etc.)
     # Apenas acessar o metadata já força o processamento de todos
     _ = Base.metadata.tables
+
 
 # Executar preparação do metadata após todas as importações
 _prepare_metadata()

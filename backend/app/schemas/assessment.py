@@ -19,7 +19,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
-
 # =================== BASE SCHEMAS (SHARED) ===================
 
 
@@ -525,7 +524,7 @@ class ProjectAssessmentInstrumentBase(BaseModel):
     target_mode: Literal["per_article", "per_model"] = Field(
         default="per_article",
         alias="targetMode",
-        description="Assessment target: per_article (whole article) or per_model (each extracted model)"
+        description="Assessment target: per_article (whole article) or per_model (each extracted model)",
     )
     is_active: bool = Field(default=True, alias="isActive")
     aggregation_rules: dict[str, Any] | None = Field(default=None, alias="aggregationRules")
@@ -607,7 +606,7 @@ class GlobalInstrumentSummary(BaseModel):
     target_mode: Literal["per_article", "per_model"] = Field(
         default="per_article",
         alias="targetMode",
-        description="Default assessment target for this instrument"
+        description="Default assessment target for this instrument",
     )
     items_count: int = Field(..., alias="itemsCount")
     domains: list[str]

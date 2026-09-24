@@ -31,10 +31,10 @@ class AssessmentInstrumentRepository(BaseRepository[AssessmentInstrument]):
     Repository for assessment instruments.
     Manages ROBINS-I, RoB 2, etc.
     """
-    
+
     def __init__(self, db: AsyncSession):
         super().__init__(db, AssessmentInstrument)
-    
+
     async def get_by_project(
         self,
         project_id: UUID | str,
@@ -48,13 +48,12 @@ class AssessmentInstrumentRepository(BaseRepository[AssessmentInstrument]):
         """
         if isinstance(project_id, str):
             project_id = UUID(project_id)
-        
+
         result = await self.db.execute(
-            select(AssessmentInstrument)
-            .where(AssessmentInstrument.project_id == project_id)
+            select(AssessmentInstrument).where(AssessmentInstrument.project_id == project_id)
         )
         return list(result.scalars().all())
-    
+
     async def get_with_items(
         self,
         instrument_id: UUID | str,
@@ -68,7 +67,7 @@ class AssessmentInstrumentRepository(BaseRepository[AssessmentInstrument]):
         """
         if isinstance(instrument_id, str):
             instrument_id = UUID(instrument_id)
-        
+
         result = await self.db.execute(
             select(AssessmentInstrument)
             .options(selectinload(AssessmentInstrument.items))
@@ -96,10 +95,10 @@ class AssessmentItemRepository(BaseRepository[AssessmentItem]):
     Repository for assessment items.
     Manages questions/evaluation criteria.
     """
-    
+
     def __init__(self, db: AsyncSession):
         super().__init__(db, AssessmentItem)
-    
+
     async def get_by_instrument(
         self,
         instrument_id: UUID | str,
@@ -113,14 +112,14 @@ class AssessmentItemRepository(BaseRepository[AssessmentItem]):
         """
         if isinstance(instrument_id, str):
             instrument_id = UUID(instrument_id)
-        
+
         result = await self.db.execute(
             select(AssessmentItem)
             .where(AssessmentItem.instrument_id == instrument_id)
             .order_by(AssessmentItem.sort_order)
         )
         return list(result.scalars().all())
-    
+
     async def get_item_with_levels(
         self,
         item_id: UUID | str,
@@ -134,10 +133,8 @@ class AssessmentItemRepository(BaseRepository[AssessmentItem]):
         """
         if isinstance(item_id, str):
             item_id = UUID(item_id)
-        
-        result = await self.db.execute(
-            select(AssessmentItem).where(AssessmentItem.id == item_id)
-        )
+
+        result = await self.db.execute(select(AssessmentItem).where(AssessmentItem.id == item_id))
         return result.scalar_one_or_none()
 
 
@@ -157,10 +154,10 @@ class AIAssessmentRepository(BaseRepository[AIAssessment]):
     Repository for AI assessments.
     Manages automated assessments via OpenAI.
     """
-    
+
     def __init__(self, db: AsyncSession):
         super().__init__(db, AIAssessment)
-    
+
     async def get_by_article_and_item(
         self,
         article_id: UUID | str,
@@ -178,7 +175,7 @@ class AIAssessmentRepository(BaseRepository[AIAssessment]):
             article_id = UUID(article_id)
         if isinstance(assessment_item_id, str):
             assessment_item_id = UUID(assessment_item_id)
-        
+
         result = await self.db.execute(
             select(AIAssessment)
             .where(AIAssessment.article_id == article_id)
@@ -187,7 +184,7 @@ class AIAssessmentRepository(BaseRepository[AIAssessment]):
             .limit(1)
         )
         return result.scalar_one_or_none()
-    
+
     async def get_by_article(
         self,
         article_id: UUID | str,
@@ -201,14 +198,14 @@ class AIAssessmentRepository(BaseRepository[AIAssessment]):
         """
         if isinstance(article_id, str):
             article_id = UUID(article_id)
-        
+
         result = await self.db.execute(
             select(AIAssessment)
             .where(AIAssessment.article_id == article_id)
             .order_by(AIAssessment.created_at.desc())
         )
         return list(result.scalars().all())
-    
+
     async def get_pending_review(
         self,
         project_id: UUID | str,
@@ -222,7 +219,7 @@ class AIAssessmentRepository(BaseRepository[AIAssessment]):
         """
         if isinstance(project_id, str):
             project_id = UUID(project_id)
-        
+
         result = await self.db.execute(
             select(AIAssessment)
             .where(AIAssessment.project_id == project_id)
@@ -490,9 +487,7 @@ class AssessmentInstanceRepository(BaseRepository[AssessmentInstance]):
         if isinstance(article_id, str):
             article_id = UUID(article_id)
 
-        query = select(AssessmentInstance).where(
-            AssessmentInstance.article_id == article_id
-        )
+        query = select(AssessmentInstance).where(AssessmentInstance.article_id == article_id)
 
         if instrument_id:
             if isinstance(instrument_id, str):
@@ -521,9 +516,7 @@ class AssessmentInstanceRepository(BaseRepository[AssessmentInstance]):
 
         result = await self.db.execute(
             select(AssessmentInstance)
-            .where(
-                AssessmentInstance.extraction_instance_id == extraction_instance_id
-            )
+            .where(AssessmentInstance.extraction_instance_id == extraction_instance_id)
             .order_by(AssessmentInstance.created_at.desc())
         )
         return list(result.scalars().all())
@@ -632,9 +625,7 @@ class AssessmentResponseRepository(BaseRepository[AssessmentResponse]):
 
         result = await self.db.execute(
             select(AssessmentResponse)
-            .where(
-                AssessmentResponse.assessment_instance_id == assessment_instance_id
-            )
+            .where(AssessmentResponse.assessment_instance_id == assessment_instance_id)
             .order_by(AssessmentResponse.created_at)
         )
         return list(result.scalars().all())
@@ -681,9 +672,7 @@ class AssessmentResponseRepository(BaseRepository[AssessmentResponse]):
         if isinstance(article_id, str):
             article_id = UUID(article_id)
 
-        query = select(AssessmentResponse).where(
-            AssessmentResponse.article_id == article_id
-        )
+        query = select(AssessmentResponse).where(AssessmentResponse.article_id == article_id)
 
         if reviewer_id:
             if isinstance(reviewer_id, str):

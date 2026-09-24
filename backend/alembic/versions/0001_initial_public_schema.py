@@ -11,20 +11,21 @@ Create Date: 2026-02-27 00:00:00.000000
 """
 
 import re
-from typing import Sequence, Union
+from collections.abc import Sequence
 
 from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "0001"
-down_revision: Union[str, None] = None
-branch_labels: Union[str, Sequence[str], None] = None
-depends_on: Union[str, Sequence[str], None] = None
+down_revision: str | None = None
+branch_labels: str | Sequence[str] | None = None
+depends_on: str | Sequence[str] | None = None
 
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _split_sql(sql: str) -> list[str]:
     """Split a SQL string on statement-ending semicolons, respecting dollar-quoted blocks.
@@ -44,7 +45,7 @@ def _split_sql(sql: str) -> list[str]:
             # Scan forward to find a possible closing $ for a dollar-quote tag.
             j = sql.find("$", i + 1)
             if j != -1:
-                tag = sql[i: j + 1]
+                tag = sql[i : j + 1]
                 if re.match(r"^\$[a-zA-Z0-9_]*\$$", tag):
                     if not in_dollar_quote:
                         # Opening tag
@@ -83,6 +84,7 @@ def _exec(sql: str) -> None:
 # ===========================================================================
 # UPGRADE
 # ===========================================================================
+
 
 def upgrade() -> None:
     # -----------------------------------------------------------------------
@@ -1121,7 +1123,9 @@ Provide your assessment with clear justification and cite specific passages from
     _exec("CREATE INDEX idx_projects_created_by_id ON projects(created_by_id);")
     _exec("CREATE INDEX idx_projects_settings_gin ON projects USING gin(settings);")
     _exec("CREATE INDEX idx_projects_review_keywords_gin ON projects USING gin(review_keywords);")
-    _exec("CREATE INDEX idx_projects_eligibility_criteria_gin ON projects USING gin(eligibility_criteria);")
+    _exec(
+        "CREATE INDEX idx_projects_eligibility_criteria_gin ON projects USING gin(eligibility_criteria);"
+    )
     _exec("CREATE INDEX idx_projects_study_design_gin ON projects USING gin(study_design);")
 
     # --- project_members ---
@@ -1148,16 +1152,25 @@ Provide your assessment with clear justification and cite specific passages from
     _exec("CREATE INDEX idx_article_files_article_role ON article_files(article_id, file_role);")
 
     # --- extraction_templates_global ---
-    _exec("CREATE INDEX idx_extraction_templates_global_schema_gin ON extraction_templates_global USING gin(schema);")
+    _exec(
+        "CREATE INDEX idx_extraction_templates_global_schema_gin ON extraction_templates_global USING gin(schema);"
+    )
 
     # --- project_extraction_templates ---
-    _exec("CREATE INDEX idx_project_extraction_templates_project_id ON project_extraction_templates(project_id);")
-    _exec("CREATE INDEX idx_project_extraction_templates_schema_gin ON project_extraction_templates USING gin(schema);")
+    _exec(
+        "CREATE INDEX idx_project_extraction_templates_project_id ON project_extraction_templates(project_id);"
+    )
+    _exec(
+        "CREATE INDEX idx_project_extraction_templates_schema_gin ON project_extraction_templates USING gin(schema);"
+    )
 
     # --- extraction_entity_types ---
-    _exec("CREATE INDEX idx_extraction_entity_types_template ON extraction_entity_types(template_id);")
     _exec(
-        "CREATE INDEX idx_extraction_entity_types_parent ON extraction_entity_types(parent_entity_type_id) WHERE parent_entity_type_id IS NOT NULL;")
+        "CREATE INDEX idx_extraction_entity_types_template ON extraction_entity_types(template_id);"
+    )
+    _exec(
+        "CREATE INDEX idx_extraction_entity_types_parent ON extraction_entity_types(parent_entity_type_id) WHERE parent_entity_type_id IS NOT NULL;"
+    )
 
     # --- extraction_fields ---
     _exec("CREATE INDEX idx_extraction_fields_entity_type ON extraction_fields(entity_type_id);")
@@ -1166,34 +1179,46 @@ Provide your assessment with clear justification and cite specific passages from
     _exec("CREATE INDEX idx_extraction_instances_project ON extraction_instances(project_id);")
     _exec("CREATE INDEX idx_extraction_instances_article ON extraction_instances(article_id);")
     _exec("CREATE INDEX idx_extraction_instances_template ON extraction_instances(template_id);")
-    _exec("CREATE INDEX idx_extraction_instances_entity_type ON extraction_instances(entity_type_id);")
     _exec(
-        "CREATE INDEX idx_extraction_instances_parent ON extraction_instances(parent_instance_id) WHERE parent_instance_id IS NOT NULL;")
+        "CREATE INDEX idx_extraction_instances_entity_type ON extraction_instances(entity_type_id);"
+    )
+    _exec(
+        "CREATE INDEX idx_extraction_instances_parent ON extraction_instances(parent_instance_id) WHERE parent_instance_id IS NOT NULL;"
+    )
     _exec("CREATE INDEX idx_extraction_instances_status ON extraction_instances(status);")
     _exec(
-        "CREATE INDEX idx_extraction_instances_article_entity_sort ON extraction_instances(article_id, entity_type_id, sort_order);")
-    _exec("CREATE INDEX idx_extraction_instances_metadata_gin ON extraction_instances USING gin(metadata);")
+        "CREATE INDEX idx_extraction_instances_article_entity_sort ON extraction_instances(article_id, entity_type_id, sort_order);"
+    )
+    _exec(
+        "CREATE INDEX idx_extraction_instances_metadata_gin ON extraction_instances USING gin(metadata);"
+    )
 
     # --- extracted_values ---
     _exec("CREATE INDEX idx_extracted_values_project_id ON extracted_values(project_id);")
     _exec("CREATE INDEX idx_extracted_values_article_id ON extracted_values(article_id);")
     _exec("CREATE INDEX idx_extracted_values_instance_id ON extracted_values(instance_id);")
     _exec("CREATE INDEX idx_extracted_values_field_id ON extracted_values(field_id);")
-    _exec("CREATE INDEX idx_extracted_values_instance_field ON extracted_values(instance_id, field_id);")
+    _exec(
+        "CREATE INDEX idx_extracted_values_instance_field ON extracted_values(instance_id, field_id);"
+    )
     _exec("CREATE INDEX idx_extracted_values_value_gin ON extracted_values USING gin(value);")
     _exec("CREATE INDEX idx_extracted_values_evidence_gin ON extracted_values USING gin(evidence);")
 
     # --- extraction_evidence ---
     _exec("CREATE INDEX idx_extraction_evidence_project_id ON extraction_evidence(project_id);")
     _exec("CREATE INDEX idx_extraction_evidence_article_id ON extraction_evidence(article_id);")
-    _exec("CREATE INDEX idx_extraction_evidence_position_gin ON extraction_evidence USING gin(position);")
+    _exec(
+        "CREATE INDEX idx_extraction_evidence_position_gin ON extraction_evidence USING gin(position);"
+    )
 
     # --- extraction_runs ---
     _exec("CREATE INDEX idx_extraction_runs_project ON extraction_runs(project_id);")
     _exec("CREATE INDEX idx_extraction_runs_article ON extraction_runs(article_id);")
     _exec("CREATE INDEX idx_extraction_runs_template ON extraction_runs(template_id);")
     _exec("CREATE INDEX idx_extraction_runs_status_stage ON extraction_runs(status, stage);")
-    _exec("CREATE INDEX idx_extraction_runs_parameters_gin ON extraction_runs USING gin(parameters);")
+    _exec(
+        "CREATE INDEX idx_extraction_runs_parameters_gin ON extraction_runs USING gin(parameters);"
+    )
     _exec("CREATE INDEX idx_extraction_runs_results_gin ON extraction_runs USING gin(results);")
 
     # --- assessment_instruments ---
@@ -1208,65 +1233,96 @@ Provide your assessment with clear justification and cite specific passages from
     # --- ai_assessments ---
     _exec("CREATE INDEX idx_ai_assessments_project ON ai_assessments(project_id);")
     _exec("CREATE INDEX idx_ai_assessments_article ON ai_assessments(article_id);")
-    _exec("CREATE INDEX idx_ai_assessments_evidence_gin ON ai_assessments USING gin(evidence_passages);")
+    _exec(
+        "CREATE INDEX idx_ai_assessments_evidence_gin ON ai_assessments USING gin(evidence_passages);"
+    )
 
     # --- project_assessment_instruments ---
-    _exec("CREATE INDEX idx_project_assessment_instruments_project_id ON project_assessment_instruments(project_id);")
     _exec(
-        "CREATE INDEX idx_project_assessment_instruments_active ON project_assessment_instruments(project_id, is_active) WHERE is_active = true;")
+        "CREATE INDEX idx_project_assessment_instruments_project_id ON project_assessment_instruments(project_id);"
+    )
+    _exec(
+        "CREATE INDEX idx_project_assessment_instruments_active ON project_assessment_instruments(project_id, is_active) WHERE is_active = true;"
+    )
 
     # --- project_assessment_items ---
-    _exec("CREATE INDEX idx_project_assessment_items_instrument_id ON project_assessment_items(project_instrument_id);")
     _exec(
-        "CREATE INDEX idx_project_assessment_items_domain ON project_assessment_items(project_instrument_id, domain);")
+        "CREATE INDEX idx_project_assessment_items_instrument_id ON project_assessment_items(project_instrument_id);"
+    )
+    _exec(
+        "CREATE INDEX idx_project_assessment_items_domain ON project_assessment_items(project_instrument_id, domain);"
+    )
 
     # --- ai_assessment_runs ---
     _exec("CREATE INDEX idx_ai_assessment_runs_status ON ai_assessment_runs(status, stage);")
     _exec("CREATE INDEX idx_ai_assessment_runs_project ON ai_assessment_runs(project_id);")
     _exec("CREATE INDEX idx_ai_assessment_runs_article ON ai_assessment_runs(article_id);")
     _exec(
-        "CREATE INDEX idx_ai_assessment_runs_instrument ON ai_assessment_runs(instrument_id) WHERE instrument_id IS NOT NULL;")
+        "CREATE INDEX idx_ai_assessment_runs_instrument ON ai_assessment_runs(instrument_id) WHERE instrument_id IS NOT NULL;"
+    )
     _exec(
-        "CREATE INDEX idx_ai_assessment_runs_project_instrument ON ai_assessment_runs(project_instrument_id) WHERE project_instrument_id IS NOT NULL;")
+        "CREATE INDEX idx_ai_assessment_runs_project_instrument ON ai_assessment_runs(project_instrument_id) WHERE project_instrument_id IS NOT NULL;"
+    )
     _exec(
-        "CREATE INDEX idx_ai_assessment_runs_instance ON ai_assessment_runs(extraction_instance_id) WHERE extraction_instance_id IS NOT NULL;")
+        "CREATE INDEX idx_ai_assessment_runs_instance ON ai_assessment_runs(extraction_instance_id) WHERE extraction_instance_id IS NOT NULL;"
+    )
     _exec("CREATE INDEX idx_ai_assessment_runs_created_by ON ai_assessment_runs(created_by);")
-    _exec("CREATE INDEX idx_ai_assessment_runs_parameters_gin ON ai_assessment_runs USING gin(parameters);")
-    _exec("CREATE INDEX idx_ai_assessment_runs_results_gin ON ai_assessment_runs USING gin(results);")
+    _exec(
+        "CREATE INDEX idx_ai_assessment_runs_parameters_gin ON ai_assessment_runs USING gin(parameters);"
+    )
+    _exec(
+        "CREATE INDEX idx_ai_assessment_runs_results_gin ON ai_assessment_runs USING gin(results);"
+    )
 
     # --- ai_suggestions ---
     _exec(
-        "CREATE INDEX idx_ai_suggestions_extraction_run_id ON ai_suggestions(extraction_run_id) WHERE extraction_run_id IS NOT NULL;")
+        "CREATE INDEX idx_ai_suggestions_extraction_run_id ON ai_suggestions(extraction_run_id) WHERE extraction_run_id IS NOT NULL;"
+    )
     _exec(
-        "CREATE INDEX idx_ai_suggestions_assessment_run_id ON ai_suggestions(assessment_run_id) WHERE assessment_run_id IS NOT NULL;")
-    _exec("CREATE INDEX idx_ai_suggestions_instance_id ON ai_suggestions(instance_id) WHERE instance_id IS NOT NULL;")
-    _exec("CREATE INDEX idx_ai_suggestions_field_id ON ai_suggestions(field_id) WHERE field_id IS NOT NULL;")
+        "CREATE INDEX idx_ai_suggestions_assessment_run_id ON ai_suggestions(assessment_run_id) WHERE assessment_run_id IS NOT NULL;"
+    )
     _exec(
-        "CREATE INDEX idx_ai_suggestions_assessment_item_id ON ai_suggestions(assessment_item_id) WHERE assessment_item_id IS NOT NULL;")
+        "CREATE INDEX idx_ai_suggestions_instance_id ON ai_suggestions(instance_id) WHERE instance_id IS NOT NULL;"
+    )
     _exec(
-        "CREATE INDEX idx_ai_suggestions_project_assessment_item_id ON ai_suggestions(project_assessment_item_id) WHERE project_assessment_item_id IS NOT NULL;")
+        "CREATE INDEX idx_ai_suggestions_field_id ON ai_suggestions(field_id) WHERE field_id IS NOT NULL;"
+    )
+    _exec(
+        "CREATE INDEX idx_ai_suggestions_assessment_item_id ON ai_suggestions(assessment_item_id) WHERE assessment_item_id IS NOT NULL;"
+    )
+    _exec(
+        "CREATE INDEX idx_ai_suggestions_project_assessment_item_id ON ai_suggestions(project_assessment_item_id) WHERE project_assessment_item_id IS NOT NULL;"
+    )
     _exec("CREATE INDEX idx_ai_suggestions_status ON ai_suggestions(status);")
-    _exec("CREATE INDEX idx_ai_suggestions_suggested_value_gin ON ai_suggestions USING gin(suggested_value);")
+    _exec(
+        "CREATE INDEX idx_ai_suggestions_suggested_value_gin ON ai_suggestions USING gin(suggested_value);"
+    )
     _exec("CREATE INDEX idx_ai_suggestions_metadata_gin ON ai_suggestions USING gin(metadata);")
 
     # --- assessment_instances ---
     _exec("CREATE INDEX idx_assessment_instances_project ON assessment_instances(project_id);")
     _exec("CREATE INDEX idx_assessment_instances_article ON assessment_instances(article_id);")
     _exec(
-        "CREATE INDEX idx_assessment_instances_instrument ON assessment_instances(instrument_id) WHERE instrument_id IS NOT NULL;")
+        "CREATE INDEX idx_assessment_instances_instrument ON assessment_instances(instrument_id) WHERE instrument_id IS NOT NULL;"
+    )
     _exec(
-        "CREATE INDEX idx_assessment_instances_project_instrument_id ON assessment_instances(project_instrument_id) WHERE project_instrument_id IS NOT NULL;")
+        "CREATE INDEX idx_assessment_instances_project_instrument_id ON assessment_instances(project_instrument_id) WHERE project_instrument_id IS NOT NULL;"
+    )
     _exec(
-        "CREATE INDEX idx_assessment_instances_extraction ON assessment_instances(extraction_instance_id) WHERE extraction_instance_id IS NOT NULL;")
+        "CREATE INDEX idx_assessment_instances_extraction ON assessment_instances(extraction_instance_id) WHERE extraction_instance_id IS NOT NULL;"
+    )
     _exec("CREATE INDEX idx_assessment_instances_reviewer ON assessment_instances(reviewer_id);")
     _exec(
-        "CREATE INDEX idx_assessment_instances_parent ON assessment_instances(parent_instance_id) WHERE parent_instance_id IS NOT NULL;")
+        "CREATE INDEX idx_assessment_instances_parent ON assessment_instances(parent_instance_id) WHERE parent_instance_id IS NOT NULL;"
+    )
     _exec("CREATE INDEX idx_assessment_instances_status ON assessment_instances(status);")
 
     # --- assessment_responses ---
     _exec("CREATE INDEX idx_assessment_responses_project ON assessment_responses(project_id);")
     _exec("CREATE INDEX idx_assessment_responses_article ON assessment_responses(article_id);")
-    _exec("CREATE INDEX idx_assessment_responses_instance ON assessment_responses(assessment_instance_id);")
+    _exec(
+        "CREATE INDEX idx_assessment_responses_instance ON assessment_responses(assessment_instance_id);"
+    )
     _exec("CREATE INDEX idx_assessment_responses_item ON assessment_responses(assessment_item_id);")
     _exec("CREATE INDEX idx_assessment_responses_reviewer ON assessment_responses(reviewer_id);")
     _exec("CREATE INDEX idx_assessment_responses_source ON assessment_responses(source);")
@@ -1275,7 +1331,9 @@ Provide your assessment with clear justification and cite specific passages from
     # --- assessment_evidence ---
     _exec("CREATE INDEX idx_assessment_evidence_project ON assessment_evidence(project_id);")
     _exec("CREATE INDEX idx_assessment_evidence_article ON assessment_evidence(article_id);")
-    _exec("CREATE INDEX idx_assessment_evidence_target ON assessment_evidence(target_type, target_id);")
+    _exec(
+        "CREATE INDEX idx_assessment_evidence_target ON assessment_evidence(target_type, target_id);"
+    )
 
     # --- user_api_keys ---
     _exec("CREATE INDEX idx_user_api_keys_user_id ON user_api_keys(user_id);")
@@ -1291,18 +1349,37 @@ Provide your assessment with clear justification and cite specific passages from
     # -----------------------------------------------------------------------
 
     for tbl in [
-        "profiles", "projects", "project_members", "articles", "article_files",
-        "article_highlights", "article_boxes", "article_annotations",
-        "extraction_templates_global", "project_extraction_templates",
-        "extraction_entity_types", "extraction_fields",
-        "extraction_instances", "extracted_values", "extraction_evidence",
-        "extraction_runs", "ai_suggestions",
-        "assessment_instruments", "assessment_items",
-        "ai_assessment_configs", "ai_assessment_prompts", "ai_assessments",
+        "profiles",
+        "projects",
+        "project_members",
+        "articles",
+        "article_files",
+        "article_highlights",
+        "article_boxes",
+        "article_annotations",
+        "extraction_templates_global",
+        "project_extraction_templates",
+        "extraction_entity_types",
+        "extraction_fields",
+        "extraction_instances",
+        "extracted_values",
+        "extraction_evidence",
+        "extraction_runs",
+        "ai_suggestions",
+        "assessment_instruments",
+        "assessment_items",
+        "ai_assessment_configs",
+        "ai_assessment_prompts",
+        "ai_assessments",
         "ai_assessment_runs",
-        "project_assessment_instruments", "project_assessment_items",
-        "assessment_instances", "assessment_responses", "assessment_evidence",
-        "zotero_integrations", "feedback_reports", "user_api_keys",
+        "project_assessment_instruments",
+        "project_assessment_items",
+        "assessment_instances",
+        "assessment_responses",
+        "assessment_evidence",
+        "zotero_integrations",
+        "feedback_reports",
+        "user_api_keys",
     ]:
         _exec(f"ALTER TABLE {tbl} ENABLE ROW LEVEL SECURITY;")
 
@@ -1780,16 +1857,31 @@ Provide your assessment with clear justification and cite specific passages from
     # Note: tables using UUIDMixin only (no TimestampMixin) are excluded:
     #   assessment_instruments, assessment_items, extraction_runs, ai_suggestions
     for tbl in [
-        "profiles", "projects", "project_members", "articles", "article_files",
+        "profiles",
+        "projects",
+        "project_members",
+        "articles",
+        "article_files",
         "article_annotations",
-        "extraction_templates_global", "project_extraction_templates",
-        "extraction_entity_types", "extraction_fields",
-        "extraction_instances", "extracted_values", "extraction_evidence",
-        "ai_assessment_configs", "ai_assessment_prompts", "ai_assessments",
+        "extraction_templates_global",
+        "project_extraction_templates",
+        "extraction_entity_types",
+        "extraction_fields",
+        "extraction_instances",
+        "extracted_values",
+        "extraction_evidence",
+        "ai_assessment_configs",
+        "ai_assessment_prompts",
+        "ai_assessments",
         "ai_assessment_runs",
-        "project_assessment_instruments", "project_assessment_items",
-        "assessment_instances", "assessment_responses", "assessment_evidence",
-        "zotero_integrations", "feedback_reports", "user_api_keys",
+        "project_assessment_instruments",
+        "project_assessment_items",
+        "assessment_instances",
+        "assessment_responses",
+        "assessment_evidence",
+        "zotero_integrations",
+        "feedback_reports",
+        "user_api_keys",
     ]:
         _exec(f"""
             CREATE TRIGGER trg_{tbl}_updated_at
@@ -2505,14 +2597,24 @@ Provide your assessment with clear justification and cite specific passages from
     _exec("GRANT ALL ON ALL ROUTINES IN SCHEMA public TO authenticated, service_role;")
     # Public-read tables (anon role can SELECT without login)
     for tbl in [
-        "extraction_templates_global", "extraction_entity_types", "extraction_fields",
-        "assessment_instruments", "assessment_items", "ai_assessment_prompts",
+        "extraction_templates_global",
+        "extraction_entity_types",
+        "extraction_fields",
+        "assessment_instruments",
+        "assessment_items",
+        "ai_assessment_prompts",
     ]:
         _exec(f"GRANT SELECT ON TABLE {tbl} TO anon;")
     # Default privileges so future tables also inherit correct grants
-    _exec("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO authenticated, service_role;")
-    _exec("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated, service_role;")
-    _exec("ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO authenticated, service_role;")
+    _exec(
+        "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON TABLES TO authenticated, service_role;"
+    )
+    _exec(
+        "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON SEQUENCES TO authenticated, service_role;"
+    )
+    _exec(
+        "ALTER DEFAULT PRIVILEGES IN SCHEMA public GRANT ALL ON ROUTINES TO authenticated, service_role;"
+    )
 
     # -----------------------------------------------------------------------
     # 10. SEED DATA — moved to 0002_seed_instruments.py (SRP: schema only here)
@@ -2526,7 +2628,9 @@ Provide your assessment with clear justification and cite specific passages from
     # Drop first to make this idempotent (policies may survive public schema wipe
     # because they live on storage.objects, not in the public schema).
     _exec('DROP POLICY IF EXISTS "Members can view article files" ON storage.objects;')
-    _exec('DROP POLICY IF EXISTS "Authenticated users can upload article files" ON storage.objects;')
+    _exec(
+        'DROP POLICY IF EXISTS "Authenticated users can upload article files" ON storage.objects;'
+    )
     _exec('DROP POLICY IF EXISTS "Members can update article files" ON storage.objects;')
     _exec('DROP POLICY IF EXISTS "Members can delete article files" ON storage.objects;')
     _exec("""
@@ -2582,10 +2686,13 @@ Provide your assessment with clear justification and cite specific passages from
 # DOWNGRADE  — drops everything in reverse dependency order
 # ===========================================================================
 
+
 def downgrade() -> None:
     # Drop storage policies created in upgrade (they reference application tables)
     _exec('DROP POLICY IF EXISTS "Members can view article files" ON storage.objects;')
-    _exec('DROP POLICY IF EXISTS "Authenticated users can upload article files" ON storage.objects;')
+    _exec(
+        'DROP POLICY IF EXISTS "Authenticated users can upload article files" ON storage.objects;'
+    )
     _exec('DROP POLICY IF EXISTS "Members can update article files" ON storage.objects;')
     _exec('DROP POLICY IF EXISTS "Members can delete article files" ON storage.objects;')
 

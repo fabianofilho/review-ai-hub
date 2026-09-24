@@ -8,14 +8,13 @@ import csv
 import io
 import uuid
 
-from fastapi import APIRouter, HTTPException, Request, UploadFile, File, Form, status
+from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, status
 
 from app.core.deps import CurrentUser, DbSession, SupabaseClient
 from app.core.factories import create_storage_adapter
 from app.core.logging import get_logger
 from app.schemas.article_import import (
     PDFCreateArticleRequest,
-    PDFMetadataExtractionResponse,
 )
 from app.schemas.common import ApiResponse
 from app.services.api_key_service import APIKeyService

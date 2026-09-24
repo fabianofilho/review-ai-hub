@@ -81,11 +81,9 @@ class ProjectAssessmentInstrumentService(LoggerMixin):
         for instrument in instruments:
             # Items already loaded via selectinload in get_by_project
             raw_items = getattr(instrument, "items", None) or []
-            items = sorted(raw_items, key=lambda i: (i.sort_order or 0))
+            items = sorted(raw_items, key=lambda i: i.sort_order or 0)
             schema = ProjectAssessmentInstrumentSchema.model_validate(instrument)
-            schema.items = [
-                ProjectAssessmentItemSchema.model_validate(item) for item in items
-            ]
+            schema.items = [ProjectAssessmentItemSchema.model_validate(item) for item in items]
             result.append(schema)
 
         return result
@@ -145,9 +143,7 @@ class ProjectAssessmentInstrumentService(LoggerMixin):
             return await self.get_project_instrument(existing.id)  # type: ignore
 
         # Get global instrument with items
-        global_instrument = await self._global_instruments.get_with_items(
-            global_instrument_id
-        )
+        global_instrument = await self._global_instruments.get_with_items(global_instrument_id)
         if not global_instrument:
             raise ValueError(f"Global instrument not found: {global_instrument_id}")
 
@@ -156,11 +152,13 @@ class ProjectAssessmentInstrumentService(LoggerMixin):
             project_id=project_id,
             global_instrument_id=global_instrument_id,
             name=custom_name or global_instrument.name,
-            description=global_instrument.schema_.get("description") if global_instrument.schema_ else None,
+            description=global_instrument.schema_.get("description")
+            if global_instrument.schema_
+            else None,
             tool_type=global_instrument.tool_type,
             version=global_instrument.version,
             mode=global_instrument.mode,
-            target_mode=getattr(global_instrument, 'target_mode', 'per_article'),
+            target_mode=getattr(global_instrument, "target_mode", "per_article"),
             is_active=True,
             aggregation_rules=global_instrument.aggregation_rules,
             schema_=global_instrument.schema_,
@@ -291,7 +289,7 @@ class ProjectAssessmentInstrumentService(LoggerMixin):
         update_data = data.model_dump(exclude_unset=True)
         for field, value in update_data.items():
             if field == "schema_config":
-                setattr(instrument, "schema_", value)
+                instrument.schema_ = value
             else:
                 setattr(instrument, field, value)
 
@@ -431,15 +429,17 @@ class ProjectAssessmentInstrumentService(LoggerMixin):
         result = []
         for instrument in instruments:
             items = getattr(instrument, "items", None) or []
-            result.append({
-                "id": str(instrument.id),
-                "toolType": instrument.tool_type,
-                "name": instrument.name,
-                "version": instrument.version,
-                "mode": instrument.mode,
-                "targetMode": getattr(instrument, 'target_mode', 'per_article'),
-                "itemsCount": len(items),
-                "domains": list(set(item.domain for item in items if item.domain)),
-            })
+            result.append(
+                {
+                    "id": str(instrument.id),
+                    "toolType": instrument.tool_type,
+                    "name": instrument.name,
+                    "version": instrument.version,
+                    "mode": instrument.mode,
+                    "targetMode": getattr(instrument, "target_mode", "per_article"),
+                    "itemsCount": len(items),
+                    "domains": list(set(item.domain for item in items if item.domain)),
+                }
+            )
 
         return result

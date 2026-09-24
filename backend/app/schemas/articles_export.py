@@ -4,11 +4,9 @@ Articles Export Schemas.
 Pydantic request/response para exportação de artigos (CSV, RIS, RDF).
 """
 
-from datetime import datetime
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
-
 
 # =================== REQUEST ===================
 
@@ -17,7 +15,9 @@ class ExportRequest(BaseModel):
     """Request para iniciar exportação de artigos."""
 
     project_id: UUID = Field(..., alias="projectId", description="ID do projeto")
-    article_ids: list[UUID] = Field(..., alias="articleIds", description="IDs dos artigos a exportar")
+    article_ids: list[UUID] = Field(
+        ..., alias="articleIds", description="IDs dos artigos a exportar"
+    )
     formats: list[str] = Field(..., description="Formatos: csv, ris, rdf (um ou mais)")
     file_scope: str = Field(
         ...,

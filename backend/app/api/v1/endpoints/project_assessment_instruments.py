@@ -17,10 +17,8 @@ from app.schemas.assessment import (
     CloneInstrumentRequest,
     CloneInstrumentResponse,
     ProjectAssessmentInstrumentCreate,
-    ProjectAssessmentInstrumentSchema,
     ProjectAssessmentInstrumentUpdate,
     ProjectAssessmentItemCreate,
-    ProjectAssessmentItemSchema,
     ProjectAssessmentItemUpdate,
 )
 from app.schemas.common import ApiResponse

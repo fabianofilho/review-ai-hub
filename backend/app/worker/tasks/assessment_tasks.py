@@ -27,43 +27,43 @@ def assess_article_task(
 ) -> dict[str, Any]:
     """
     Task para avaliação AI de um artigo.
-    
+
     Args:
         project_id: ID do projeto.
         article_id: ID do artigo.
         assessment_item_id: ID do item de assessment.
         instrument_id: ID do instrumento.
         user_id: ID do usuário.
-        
+
     Returns:
         Dict com resultado do assessment.
     """
     from app.core.deps import AsyncSessionLocal, get_supabase_client
     from app.core.factories import create_storage_adapter
     from app.services.ai_assessment_service import AIAssessmentService
-    
+
     async def run():
         async with AsyncSessionLocal() as session:
             try:
                 supabase = get_supabase_client()
                 storage = create_storage_adapter(supabase)
-                
+
                 service = AIAssessmentService(
                     db=session,
                     user_id=user_id,
                     storage=storage,
                     trace_id=self.request.id,
                 )
-                
+
                 result = await service.assess(
                     project_id=UUID(project_id),
                     article_id=UUID(article_id),
                     assessment_item_id=UUID(assessment_item_id),
                     instrument_id=UUID(instrument_id),
                 )
-                
+
                 await session.commit()
-                
+
                 return {
                     "assessment_id": result.assessment_id,
                     "selected_level": result.selected_level,
@@ -73,7 +73,7 @@ def assess_article_task(
             except Exception:
                 await session.rollback()
                 raise
-    
+
     try:
         return asyncio.run(run())
     except Exception as exc:
@@ -95,13 +95,13 @@ def batch_assess_task(
 ) -> dict[str, Any]:
     """
     Task para avaliação em batch de múltiplos artigos.
-    
+
     Args:
         project_id: ID do projeto.
         article_ids: Lista de IDs de artigos.
         instrument_id: ID do instrumento.
         user_id: ID do usuário.
-        
+
     Returns:
         Dict com estatísticas do batch.
     """
@@ -111,7 +111,7 @@ def batch_assess_task(
         "failed": 0,
         "results": [],
     }
-    
+
     for article_id in article_ids:
         try:
             # Disparar subtask para cada artigo
@@ -122,20 +122,24 @@ def batch_assess_task(
                 instrument_id=instrument_id,
                 user_id=user_id,
             )
-            
-            results["results"].append({
-                "article_id": article_id,
-                "task_id": task.id,
-                "status": "queued",
-            })
+
+            results["results"].append(
+                {
+                    "article_id": article_id,
+                    "task_id": task.id,
+                    "status": "queued",
+                }
+            )
             results["completed"] += 1
-            
+
         except Exception as e:
             results["failed"] += 1
-            results["results"].append({
-                "article_id": article_id,
-                "status": "failed",
-                "error": str(e),
-            })
-    
+            results["results"].append(
+                {
+                    "article_id": article_id,
+                    "status": "failed",
+                    "error": str(e),
+                }
+            )
+
     return results

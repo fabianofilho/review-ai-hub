@@ -58,9 +58,9 @@ class CanonicalArticlePayload:
 
 
 def normalize_zotero_item(
-        *,
-        item: dict[str, Any],
-        collection_key: str,
+    *,
+    item: dict[str, Any],
+    collection_key: str,
 ) -> CanonicalArticlePayload:
     data = item.get("data", {})
     creators = list(data.get("creators") or [])
@@ -87,7 +87,8 @@ def normalize_zotero_item(
         "pages": data.get("pages"),
         "doi": doi,
         "url_landing": url_landing,
-        "authors": [row["display_name"] for row in creator_rows if row["creator_type"] == "author"] or None,
+        "authors": [row["display_name"] for row in creator_rows if row["creator_type"] == "author"]
+        or None,
         "keywords": [tag.get("tag") for tag in data.get("tags", []) if tag.get("tag")] or None,
         "ingestion_source": "zotero",
         "source_payload": item,
@@ -186,8 +187,7 @@ def normalize_scopus_csv_row(row: dict[str, str]) -> CanonicalArticlePayload:
     authors_raw = _clean(row.get("Authors"))
     authors = [a.strip() for a in authors_raw.split(";") if a.strip()] if authors_raw else []
     creator_rows = [
-        {"creator_type": "author", "display_name": name, "raw": {"name": name}}
-        for name in authors
+        {"creator_type": "author", "display_name": name, "raw": {"name": name}} for name in authors
     ]
 
     # Parse year

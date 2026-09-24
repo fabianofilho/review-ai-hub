@@ -75,7 +75,7 @@ class ZoteroAction(StrEnum):
 )
 @limiter.limit("120/minute")
 async def zotero_action(
-        request: Request,
+    request: Request,
     action: ZoteroAction,
     db: DbSession,
     user: CurrentUser,
@@ -299,7 +299,11 @@ async def zotero_action(
             action=action.value,
             error=str(e),
         )
-        if action in {ZoteroAction.SYNC_RETRY_FAILED, ZoteroAction.SYNC_STATUS, ZoteroAction.SYNC_ITEM_RESULT}:
+        if action in {
+            ZoteroAction.SYNC_RETRY_FAILED,
+            ZoteroAction.SYNC_STATUS,
+            ZoteroAction.SYNC_ITEM_RESULT,
+        }:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:

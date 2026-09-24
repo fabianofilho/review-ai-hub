@@ -51,10 +51,10 @@ def _extract_json_from_markdown(content: str) -> str:
         if char in "{[":
             json_start = i
             break
-    
+
     if json_start >= 0:
         return content[json_start:]
-    
+
     return content
 
 
@@ -93,7 +93,7 @@ def parse_json_safe(
 
     # Extract JSON from possible wrappers
     cleaned = _extract_json_from_markdown(content)
-    
+
     try:
         result = json.loads(cleaned)
     except json.JSONDecodeError as e:
@@ -138,7 +138,7 @@ def parse_json_safe(
                 available_keys=list(result.keys()),
                 trace_id=trace_id,
             )
-    
+
     return result
 
 
@@ -167,9 +167,9 @@ def parse_json_array_safe(
         if default is not None:
             return default
         raise JSONParseError("Empty JSON content", original_content=content)
-    
+
     cleaned = _extract_json_from_markdown(content)
-    
+
     try:
         result = json.loads(cleaned)
     except json.JSONDecodeError as e:
@@ -200,7 +200,7 @@ def parse_json_array_safe(
                 if isinstance(value, list):
                     result = value
                     break
-    
+
     if not isinstance(result, list):
         logger.warning(
             "Parsed JSON is not a list",
@@ -213,7 +213,7 @@ def parse_json_array_safe(
             f"JSON expected as array, got {type(result).__name__}",
             original_content=content,
         )
-    
+
     return result
 
 
@@ -246,4 +246,3 @@ def extract_models_from_response(
             trace_id=trace_id,
         )
         return []
-

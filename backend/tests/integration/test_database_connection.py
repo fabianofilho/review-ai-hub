@@ -209,4 +209,3 @@ class TestDatabaseRLS:
         )
         row = result.fetchone()
         assert row is not None
-

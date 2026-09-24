@@ -85,10 +85,10 @@ class ZoteroImportService(LoggerMixin):
         self._sync_events = ArticleSyncEventRepository(db)
 
     async def create_sync_run(
-            self,
-            *,
-            project_id: UUID,
-            collection_key: str | None,
+        self,
+        *,
+        project_id: UUID,
+        collection_key: str | None,
     ) -> ArticleSyncRun:
         return await self._sync_runs.create_run(
             project_id=project_id,
@@ -106,9 +106,9 @@ class ZoteroImportService(LoggerMixin):
         collection_key: str,
         max_items: int = 100,
         import_pdfs: bool = True,
-            update_existing: bool = True,
-            sync_run_id: UUID | None = None,
-            predefined_items: list[dict[str, Any]] | None = None,
+        update_existing: bool = True,
+        sync_run_id: UUID | None = None,
+        predefined_items: list[dict[str, Any]] | None = None,
     ) -> ZoteroImportResult:
         """
         Importa itens de uma collection do Zotero.
@@ -131,7 +131,9 @@ class ZoteroImportService(LoggerMixin):
             import_pdfs=import_pdfs,
         )
 
-        run = await self._ensure_run(project_id=project_id, collection_key=collection_key, sync_run_id=sync_run_id)
+        run = await self._ensure_run(
+            project_id=project_id, collection_key=collection_key, sync_run_id=sync_run_id
+        )
         run.status = "running"
         await self.db.flush()
         await self.db.commit()
@@ -277,12 +279,12 @@ class ZoteroImportService(LoggerMixin):
         )
 
     async def retry_failed_items(
-            self,
-            *,
-            project_id: UUID,
-            source_run_id: UUID,
-            target_run_id: UUID | None = None,
-            limit: int = 100,
+        self,
+        *,
+        project_id: UUID,
+        source_run_id: UUID,
+        target_run_id: UUID | None = None,
+        limit: int = 100,
     ) -> tuple[ArticleSyncRun, ZoteroImportResult]:
         source_run = await self._sync_runs.get_owned_run(source_run_id, self._user_uuid())
         if not source_run:
@@ -325,8 +327,8 @@ class ZoteroImportService(LoggerMixin):
         project_id: UUID,
         collection_key: str,
         import_pdfs: bool,
-            update_existing: bool,
-            sync_run_id: UUID,
+        update_existing: bool,
+        sync_run_id: UUID,
     ) -> ZoteroImportItemResult:
         """Processa um item do Zotero."""
         zotero_key = item.get("key", "")
@@ -461,7 +463,9 @@ class ZoteroImportService(LoggerMixin):
             )
             return False
 
-    async def _sync_author_links(self, article_id: UUID, creator_rows: list[dict[str, Any]]) -> None:
+    async def _sync_author_links(
+        self, article_id: UUID, creator_rows: list[dict[str, Any]]
+    ) -> None:
         links: list[ArticleAuthorLink] = []
         seen_link_keys: set[tuple[UUID, str]] = set()
         author_cache: dict[str, Any] = {}
@@ -493,10 +497,10 @@ class ZoteroImportService(LoggerMixin):
         await self._author_links.replace_article_links(article_id, links)
 
     def _canonical_creator_key(
-            self,
-            display_name: str,
-            creator_type: str,
-            raw_creator: dict[str, Any],
+        self,
+        display_name: str,
+        creator_type: str,
+        raw_creator: dict[str, Any],
     ) -> str:
         """
         Canonical key inspired by Zotero creator modes:
@@ -526,12 +530,12 @@ class ZoteroImportService(LoggerMixin):
         return f"{creator_type}|onefield|{normalized_display}"
 
     async def _mark_removed_items(
-            self,
-            *,
-            project_id: UUID,
-            collection_key: str,
-            seen_item_keys: set[str],
-            sync_run_id: UUID,
+        self,
+        *,
+        project_id: UUID,
+        collection_key: str,
+        seen_item_keys: set[str],
+        sync_run_id: UUID,
     ) -> int:
         removed_count = 0
         candidates = await self._articles.get_zotero_project_articles(project_id, collection_key)
@@ -553,11 +557,11 @@ class ZoteroImportService(LoggerMixin):
         return removed_count
 
     async def _ensure_run(
-            self,
-            *,
-            project_id: UUID,
-            collection_key: str,
-            sync_run_id: UUID | None,
+        self,
+        *,
+        project_id: UUID,
+        collection_key: str,
+        sync_run_id: UUID | None,
     ) -> ArticleSyncRun:
         if sync_run_id:
             run = await self._sync_runs.get_by_id(sync_run_id)
@@ -569,12 +573,12 @@ class ZoteroImportService(LoggerMixin):
         return await self.get_owned_sync_run(sync_run_id)
 
     async def get_sync_item_results(
-            self,
-            *,
-            sync_run_id: UUID,
-            status_filter: str | None,
-            offset: int,
-            limit: int,
+        self,
+        *,
+        sync_run_id: UUID,
+        status_filter: str | None,
+        offset: int,
+        limit: int,
     ) -> tuple[list, int]:
         return await self._sync_events.list_run_events(
             sync_run_id=sync_run_id,

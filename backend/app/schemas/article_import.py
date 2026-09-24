@@ -9,7 +9,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # =================== PDF METADATA EXTRACTION ===================
 
 

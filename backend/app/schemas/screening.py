@@ -10,7 +10,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field
 
-
 # =================== CRITERIA ===================
 
 
@@ -201,9 +200,7 @@ class AIScreeningSuggestion(BaseModel):
     decision: str
     relevance_score: float | None = Field(default=None, alias="relevanceScore")
     reasoning: str | None = None
-    criteria_evaluations: list[dict[str, Any]] = Field(
-        default=[], alias="criteriaEvaluations"
-    )
+    criteria_evaluations: list[dict[str, Any]] = Field(default=[], alias="criteriaEvaluations")
     status: str
     created_at: datetime = Field(..., alias="createdAt")
 

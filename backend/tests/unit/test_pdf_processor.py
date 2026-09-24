@@ -4,7 +4,7 @@ PDF Processor Unit Tests.
 
 import pytest
 
-from app.services.pdf_processor import PDFProcessor, PageContent, PDFMetadata, TextChunk
+from app.services.pdf_processor import PageContent, PDFMetadata, PDFProcessor, TextChunk
 
 
 @pytest.fixture
@@ -17,7 +17,7 @@ def pdf_processor() -> PDFProcessor:
 def valid_pdf_bytes() -> bytes:
     """
     Fixture com PDF válido para testes.
-    
+
     Este é um PDF mínimo válido com uma página contendo "Test PDF".
     """
     return b"""%PDF-1.4
@@ -44,7 +44,7 @@ startxref
 
 class TestPDFProcessor:
     """Testes para PDFProcessor."""
-    
+
     @pytest.mark.asyncio
     async def test_extract_text_returns_string(
         self,
@@ -53,9 +53,9 @@ class TestPDFProcessor:
     ) -> None:
         """Test que extract_text retorna string."""
         text = await pdf_processor.extract_text(valid_pdf_bytes)
-        
+
         assert isinstance(text, str)
-    
+
     @pytest.mark.asyncio
     async def test_extract_pages_returns_list(
         self,
@@ -64,11 +64,11 @@ class TestPDFProcessor:
     ) -> None:
         """Test que extract_pages retorna lista de PageContent."""
         pages = await pdf_processor.extract_pages(valid_pdf_bytes)
-        
+
         assert isinstance(pages, list)
         assert len(pages) >= 1
         assert all(isinstance(p, PageContent) for p in pages)
-    
+
     @pytest.mark.asyncio
     async def test_get_metadata_returns_pdfmetadata(
         self,
@@ -77,12 +77,12 @@ class TestPDFProcessor:
     ) -> None:
         """Test que get_metadata retorna PDFMetadata."""
         metadata = await pdf_processor.get_metadata(valid_pdf_bytes)
-        
+
         assert isinstance(metadata, PDFMetadata)
         assert metadata.pages >= 1
         assert isinstance(metadata.md5_hash, str)
         assert len(metadata.md5_hash) == 32  # MD5 tem 32 caracteres hex
-    
+
     @pytest.mark.asyncio
     async def test_extract_text_chunked(
         self,
@@ -94,10 +94,10 @@ class TestPDFProcessor:
             valid_pdf_bytes,
             max_chars_per_chunk=1000,
         )
-        
+
         assert isinstance(chunks, list)
         assert all(isinstance(c, TextChunk) for c in chunks)
-    
+
     @pytest.mark.asyncio
     async def test_extract_text_invalid_pdf_raises_error(
         self,
@@ -105,32 +105,32 @@ class TestPDFProcessor:
     ) -> None:
         """Test que PDF inválido levanta ValueError."""
         invalid_pdf = b"not a pdf file"
-        
+
         with pytest.raises(ValueError, match="Failed to extract"):
             await pdf_processor.extract_text(invalid_pdf)
-    
+
     def test_estimate_tokens(self, pdf_processor: PDFProcessor) -> None:
         """Test estimativa de tokens."""
         text = "Hello world! " * 100  # ~1300 caracteres
-        
+
         tokens = pdf_processor.estimate_tokens(text)
-        
+
         # Aproximadamente 4 caracteres por token
         assert 200 < tokens < 500
-    
+
     def test_clean_text(self, pdf_processor: PDFProcessor) -> None:
         """Test limpeza de texto."""
         dirty_text = "Hello\x00World\n\n\n\nTest"
-        
+
         clean = pdf_processor._clean_text(dirty_text)
-        
+
         assert "\x00" not in clean
         assert "\n\n\n\n" not in clean
 
 
 class TestSectionDetection:
     """Testes para detecção de seções."""
-    
+
     @pytest.mark.asyncio
     async def test_detect_sections_finds_common_sections(
         self,
@@ -159,16 +159,16 @@ class TestSectionDetection:
         References
         1. Reference one.
         """
-        
+
         sections = await pdf_processor.detect_sections(text)
-        
+
         assert len(sections) >= 5
         section_names = [s["name"].lower() for s in sections]
-        
+
         assert any("abstract" in n for n in section_names)
         assert any("introduction" in n for n in section_names)
         assert any("method" in n for n in section_names)
-    
+
     @pytest.mark.asyncio
     async def test_extract_section_text(
         self,
@@ -183,11 +183,8 @@ class TestSectionDetection:
         Methods
         This is the methods section.
         """
-        
-        intro_text = await pdf_processor.extract_section_text(
-            text, "Introduction", "Methods"
-        )
-        
+
+        intro_text = await pdf_processor.extract_section_text(text, "Introduction", "Methods")
+
         assert "introduction content" in intro_text.lower()
         assert "methods section" not in intro_text.lower()
-

@@ -16,7 +16,7 @@ class TestExtractionInstanceStatusEnum:
         """Verifies that all expected values exist."""
         expected_values = {"pending", "in_progress", "completed", "reviewed", "archived"}
         actual_values = {status.value for status in ExtractionInstanceStatus}
-        
+
         assert actual_values == expected_values
 
     def test_pending_is_default(self):
@@ -70,4 +70,3 @@ class TestExtractionInstanceStatusEnum:
 
         # ARCHIVED is a special state (not part of main workflow)
         assert ExtractionInstanceStatus.ARCHIVED not in workflow
-

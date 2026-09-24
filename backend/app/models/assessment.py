@@ -21,7 +21,8 @@ from sqlalchemy import (
     Text,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, BaseModel, PostgreSQLEnumType, UUIDMixin
@@ -33,10 +34,10 @@ if TYPE_CHECKING:
 class AssessmentStatus(str, PyEnum):
     """
     Status da avaliação de qualidade.
-    
+
     Valores alinhados com o enum 'assessment_status' no PostgreSQL.
     """
-    
+
     IN_PROGRESS = "in_progress"
     SUBMITTED = "submitted"
     LOCKED = "locked"
@@ -62,20 +63,20 @@ class AssessmentInstrument(Base, UUIDMixin):
 
     aggregation_rules: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
     schema_: Mapped[dict | None] = mapped_column("schema", JSONB, nullable=True)
-    
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
-    
+
     # Relationships
     items: Mapped[list["AssessmentItem"]] = relationship(
         "AssessmentItem",
         back_populates="instrument",
         cascade="all, delete-orphan",
     )
-    
+
     def __repr__(self) -> str:
         return f"<AssessmentInstrument {self.tool_type} {self.name}>"
 
@@ -143,33 +144,33 @@ class AIAssessmentConfig(BaseModel):
     """
     Configurações de IA para avaliação de qualidade por projeto.
     """
-    
+
     __tablename__ = "ai_assessment_configs"
-    
+
     project_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("public.projects.id", ondelete="CASCADE"),
         nullable=False,
     )
-    
+
     instrument_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("public.assessment_instruments.id", ondelete="SET NULL"),
         nullable=True,
     )
-    
+
     model_name: Mapped[str] = mapped_column(
         String,
         default="google/gemini-2.5-flash",
         nullable=False,
     )
-    
+
     temperature: Mapped[float] = mapped_column(Numeric, default=0.3, nullable=False)
     max_tokens: Mapped[int] = mapped_column(Integer, default=2000, nullable=False)
-    
+
     system_instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    
+
     def __repr__(self) -> str:
         return f"<AIAssessmentConfig project={self.project_id}>"
 
@@ -178,22 +179,22 @@ class AIAssessmentPrompt(BaseModel):
     """
     Prompts customizados para cada item de avaliação.
     """
-    
+
     __tablename__ = "ai_assessment_prompts"
-    
+
     assessment_item_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("public.assessment_items.id", ondelete="CASCADE"),
         unique=True,
         nullable=False,
     )
-    
+
     system_prompt: Mapped[str] = mapped_column(
         Text,
         default="You are an expert research quality assessor. Analyze the provided research article and answer the specific question based on the evidence found in the text.",
         nullable=False,
     )
-    
+
     user_prompt_template: Mapped[str] = mapped_column(
         Text,
         default="""Based on the article content, assess: {{question}}
@@ -203,13 +204,13 @@ Available response levels: {{levels}}
 Provide your assessment with clear justification and cite specific passages from the text that support your conclusion.""",
         nullable=False,
     )
-    
+
     # Relationships
     assessment_item: Mapped["AssessmentItem"] = relationship(
         "AssessmentItem",
         back_populates="prompt",
     )
-    
+
     def __repr__(self) -> str:
         return f"<AIAssessmentPrompt item={self.assessment_item_id}>"
 
@@ -782,4 +783,3 @@ class ProjectAssessmentItem(BaseModel):
 
     def __repr__(self) -> str:
         return f"<ProjectAssessmentItem {self.item_code} instrument={self.project_instrument_id}>"
-

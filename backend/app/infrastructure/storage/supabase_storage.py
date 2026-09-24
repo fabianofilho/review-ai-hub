@@ -32,7 +32,7 @@ class SupabaseStorageAdapter(StorageAdapter, LoggerMixin):
             client: Authenticated Supabase client.
         """
         self.client = client
-    
+
     async def download(self, bucket: str, path: str) -> bytes:
         """
         Download a file from Supabase Storage.
@@ -50,13 +50,13 @@ class SupabaseStorageAdapter(StorageAdapter, LoggerMixin):
         """
         try:
             response = self.client.storage.from_(bucket).download(path)
-            
+
             if not response:
                 raise FileNotFoundError(f"File not found: {bucket}/{path}")
 
             # Supabase returns bytes directly
             return bytes(response)
-            
+
         except FileNotFoundError:
             raise
         except Exception as e:
@@ -67,7 +67,7 @@ class SupabaseStorageAdapter(StorageAdapter, LoggerMixin):
                 error=str(e),
             )
             raise StorageError(f"Download failed: {e}", bucket, path)
-    
+
     async def upload(
         self,
         bucket: str,
@@ -96,16 +96,16 @@ class SupabaseStorageAdapter(StorageAdapter, LoggerMixin):
                 data,
                 file_options={"content-type": content_type},
             )
-            
+
             self.logger.info(
                 "storage_upload_success",
                 bucket=bucket,
                 path=path,
                 size=len(data),
             )
-            
+
             return path
-            
+
         except Exception as e:
             self.logger.error(
                 "storage_upload_error",
@@ -114,7 +114,7 @@ class SupabaseStorageAdapter(StorageAdapter, LoggerMixin):
                 error=str(e),
             )
             raise StorageError(f"Upload failed: {e}", bucket, path)
-    
+
     async def delete(self, bucket: str, path: str) -> bool:
         """
         Remove a file from Supabase Storage.
@@ -128,15 +128,15 @@ class SupabaseStorageAdapter(StorageAdapter, LoggerMixin):
         """
         try:
             self.client.storage.from_(bucket).remove([path])
-            
+
             self.logger.info(
                 "storage_delete_success",
                 bucket=bucket,
                 path=path,
             )
-            
+
             return True
-            
+
         except Exception as e:
             self.logger.warning(
                 "storage_delete_error",
@@ -145,7 +145,7 @@ class SupabaseStorageAdapter(StorageAdapter, LoggerMixin):
                 error=str(e),
             )
             return False
-    
+
     async def exists(self, bucket: str, path: str) -> bool:
         """
         Check if file exists in Supabase Storage.
@@ -161,17 +161,17 @@ class SupabaseStorageAdapter(StorageAdapter, LoggerMixin):
             # Try to list the specific file
             folder = "/".join(path.split("/")[:-1]) or ""
             filename = path.split("/")[-1]
-            
+
             response = self.client.storage.from_(bucket).list(folder)
-            
+
             if response:
                 return any(f.get("name") == filename for f in response)
-            
+
             return False
-            
+
         except Exception:
             return False
-    
+
     async def get_public_url(self, bucket: str, path: str) -> str:
         """
         Get public URL of a file.
@@ -188,7 +188,7 @@ class SupabaseStorageAdapter(StorageAdapter, LoggerMixin):
             return response
         except Exception as e:
             raise StorageError(f"Failed to get public URL: {e}", bucket, path)
-    
+
     async def get_signed_url(
         self,
         bucket: str,
@@ -207,13 +207,11 @@ class SupabaseStorageAdapter(StorageAdapter, LoggerMixin):
             Signed URL.
         """
         try:
-            response = self.client.storage.from_(bucket).create_signed_url(
-                path, expires_in
-            )
+            response = self.client.storage.from_(bucket).create_signed_url(path, expires_in)
             return response.get("signedURL", "")
         except Exception as e:
             raise StorageError(f"Failed to get signed URL: {e}", bucket, path)
-    
+
     async def list_files(
         self,
         bucket: str,
@@ -236,9 +234,9 @@ class SupabaseStorageAdapter(StorageAdapter, LoggerMixin):
                 prefix,
                 {"limit": limit},
             )
-            
+
             return response or []
-            
+
         except Exception as e:
             self.logger.error(
                 "storage_list_error",
@@ -247,7 +245,7 @@ class SupabaseStorageAdapter(StorageAdapter, LoggerMixin):
                 error=str(e),
             )
             return []
-    
+
     async def move(
         self,
         bucket: str,
@@ -267,16 +265,16 @@ class SupabaseStorageAdapter(StorageAdapter, LoggerMixin):
         """
         try:
             self.client.storage.from_(bucket).move(from_path, to_path)
-            
+
             self.logger.info(
                 "storage_move_success",
                 bucket=bucket,
                 from_path=from_path,
                 to_path=to_path,
             )
-            
+
             return True
-            
+
         except Exception as e:
             self.logger.error(
                 "storage_move_error",
@@ -286,7 +284,7 @@ class SupabaseStorageAdapter(StorageAdapter, LoggerMixin):
                 error=str(e),
             )
             return False
-    
+
     async def copy(
         self,
         bucket: str,
@@ -306,16 +304,16 @@ class SupabaseStorageAdapter(StorageAdapter, LoggerMixin):
         """
         try:
             self.client.storage.from_(bucket).copy(from_path, to_path)
-            
+
             self.logger.info(
                 "storage_copy_success",
                 bucket=bucket,
                 from_path=from_path,
                 to_path=to_path,
             )
-            
+
             return True
-            
+
         except Exception as e:
             self.logger.error(
                 "storage_copy_error",

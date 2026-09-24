@@ -29,7 +29,7 @@ def extract_section_task(
 ) -> dict[str, Any]:
     """
     Task para extração de uma seção.
-    
+
     Args:
         project_id: ID do projeto.
         article_id: ID do artigo.
@@ -38,7 +38,7 @@ def extract_section_task(
         user_id: ID do usuário.
         parent_instance_id: ID da instância pai (opcional).
         openai_api_key: API key customizada (BYOK). Se None, busca do usuário ou usa global.
-        
+
     Returns:
         Dict com resultado da extração.
     """
@@ -46,19 +46,19 @@ def extract_section_task(
     from app.core.factories import create_storage_adapter
     from app.services.api_key_service import APIKeyService
     from app.services.section_extraction_service import SectionExtractionService
-    
+
     async def run():
         async with AsyncSessionLocal() as session:
             try:
                 supabase = get_supabase_client()
                 storage = create_storage_adapter(supabase)
-                
+
                 # Buscar API key do usuário se não foi passada
                 api_key = openai_api_key
                 if not api_key:
                     api_key_service = APIKeyService(db=session, user_id=user_id)
                     api_key = await api_key_service.get_key_for_provider("openai")
-                
+
                 service = SectionExtractionService(
                     db=session,
                     user_id=user_id,
@@ -66,7 +66,7 @@ def extract_section_task(
                     trace_id=self.request.id,
                     openai_api_key=api_key,
                 )
-                
+
                 result = await service.extract_section(
                     project_id=UUID(project_id),
                     article_id=UUID(article_id),
@@ -74,7 +74,7 @@ def extract_section_task(
                     entity_type_id=UUID(entity_type_id),
                     parent_instance_id=UUID(parent_instance_id) if parent_instance_id else None,
                 )
-                
+
                 await session.commit()
 
                 return {
@@ -86,7 +86,7 @@ def extract_section_task(
             except Exception:
                 await session.rollback()
                 raise
-    
+
     try:
         return asyncio.run(run())
     except Exception as exc:
@@ -109,14 +109,14 @@ def extract_models_task(
 ) -> dict[str, Any]:
     """
     Task para extração de modelos de predição.
-    
+
     Args:
         project_id: ID do projeto.
         article_id: ID do artigo.
         template_id: ID do template.
         user_id: ID do usuário.
         openai_api_key: API key customizada (BYOK). Se None, busca do usuário ou usa global.
-        
+
     Returns:
         Dict com modelos extraídos.
     """
@@ -124,19 +124,19 @@ def extract_models_task(
     from app.core.factories import create_storage_adapter
     from app.services.api_key_service import APIKeyService
     from app.services.model_extraction_service import ModelExtractionService
-    
+
     async def run():
         async with AsyncSessionLocal() as session:
             try:
                 supabase = get_supabase_client()
                 storage = create_storage_adapter(supabase)
-                
+
                 # Buscar API key do usuário se não foi passada
                 api_key = openai_api_key
                 if not api_key:
                     api_key_service = APIKeyService(db=session, user_id=user_id)
                     api_key = await api_key_service.get_key_for_provider("openai")
-                
+
                 service = ModelExtractionService(
                     db=session,
                     user_id=user_id,
@@ -144,13 +144,13 @@ def extract_models_task(
                     trace_id=self.request.id,
                     openai_api_key=api_key,
                 )
-                
+
                 result = await service.extract(
                     project_id=UUID(project_id),
                     article_id=UUID(article_id),
                     template_id=UUID(template_id),
                 )
-                
+
                 await session.commit()
 
                 return {
@@ -174,7 +174,7 @@ def extract_models_task(
             except Exception:
                 await session.rollback()
                 raise
-    
+
     try:
         return asyncio.run(run())
     except Exception as exc:
@@ -196,13 +196,13 @@ def batch_extract_task(
 ) -> dict[str, Any]:
     """
     Task para extração em batch de múltiplos artigos.
-    
+
     Args:
         project_id: ID do projeto.
         article_ids: Lista de IDs de artigos.
         template_id: ID do template.
         user_id: ID do usuário.
-        
+
     Returns:
         Dict com estatísticas do batch.
     """
@@ -211,7 +211,7 @@ def batch_extract_task(
         "queued": 0,
         "results": [],
     }
-    
+
     for article_id in article_ids:
         try:
             task = extract_models_task.delay(
@@ -220,19 +220,23 @@ def batch_extract_task(
                 template_id=template_id,
                 user_id=user_id,
             )
-            
-            results["results"].append({
-                "article_id": article_id,
-                "task_id": task.id,
-                "status": "queued",
-            })
+
+            results["results"].append(
+                {
+                    "article_id": article_id,
+                    "task_id": task.id,
+                    "status": "queued",
+                }
+            )
             results["queued"] += 1
-            
+
         except Exception as e:
-            results["results"].append({
-                "article_id": article_id,
-                "status": "failed",
-                "error": str(e),
-            })
-    
+            results["results"].append(
+                {
+                    "article_id": article_id,
+                    "status": "failed",
+                    "error": str(e),
+                }
+            )
+
     return results

@@ -53,9 +53,9 @@ AsyncSessionLocal = async_sessionmaker(
 async def get_db() -> AsyncGenerator[AsyncSession, None]:
     """
     Dependency que fornece uma sessão de banco de dados.
-    
+
     A sessão é automaticamente fechada ao final da request.
-    
+
     Yields:
         AsyncSession: Sessão do SQLAlchemy.
     """
@@ -72,15 +72,16 @@ DbSession = Annotated[AsyncSession, Depends(get_db)]
 
 # =================== SUPABASE CLIENT ===================
 
+
 @lru_cache
 def get_supabase_client() -> Client:
     """
     Retorna cliente Supabase configurado com service role.
-    
+
     Usado para operações que precisam de acesso elevado:
     - Storage operations
     - Bypass RLS quando necessário
-    
+
     Returns:
         Client: Supabase client configurado.
     """
@@ -105,13 +106,14 @@ CurrentUser = Annotated[TokenPayload, Depends(get_current_user)]
 
 # =================== COMBINED DEPENDENCIES ===================
 
+
 class RequestContext:
     """
     Contexto da requisição com todas as dependencies comuns.
-    
+
     Agrupa db, user e supabase para facilitar passagem para services.
     """
-    
+
     def __init__(
         self,
         db: AsyncSession,
@@ -121,7 +123,7 @@ class RequestContext:
         self.db = db
         self.user = user
         self.supabase = supabase
-    
+
     @property
     def user_id(self) -> str:
         """ID do usuário atual."""
@@ -135,11 +137,10 @@ async def get_request_context(
 ) -> RequestContext:
     """
     Dependency que fornece contexto completo da requisição.
-    
+
     Útil para services que precisam de múltiplas dependencies.
     """
     return RequestContext(db=db, user=user, supabase=supabase)
 
 
 RequestCtx = Annotated[RequestContext, Depends(get_request_context)]
-

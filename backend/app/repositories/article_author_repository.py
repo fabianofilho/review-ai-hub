@@ -19,7 +19,9 @@ class ArticleAuthorRepository(BaseRepository[ArticleAuthor]):
     def __init__(self, db: AsyncSession):
         super().__init__(db, ArticleAuthor)
 
-    async def get_by_identity(self, normalized_name: str, orcid: str | None) -> ArticleAuthor | None:
+    async def get_by_identity(
+        self, normalized_name: str, orcid: str | None
+    ) -> ArticleAuthor | None:
         query = select(ArticleAuthor).where(ArticleAuthor.normalized_name == normalized_name)
         if orcid:
             query = query.where(ArticleAuthor.orcid == orcid)
@@ -27,11 +29,11 @@ class ArticleAuthorRepository(BaseRepository[ArticleAuthor]):
         return result.scalar_one_or_none()
 
     async def get_or_create(
-            self,
-            display_name: str,
-            *,
-            orcid: str | None = None,
-            source_hint: dict | None = None,
+        self,
+        display_name: str,
+        *,
+        orcid: str | None = None,
+        source_hint: dict | None = None,
     ) -> ArticleAuthor:
         normalized_name = normalize_author_name(display_name)
         existing = await self.get_by_identity(normalized_name, orcid)
@@ -54,7 +56,9 @@ class ArticleAuthorLinkRepository(BaseRepository[ArticleAuthorLink]):
     def __init__(self, db: AsyncSession):
         super().__init__(db, ArticleAuthorLink)
 
-    async def replace_article_links(self, article_id: UUID, links: list[ArticleAuthorLink]) -> list[ArticleAuthorLink]:
+    async def replace_article_links(
+        self, article_id: UUID, links: list[ArticleAuthorLink]
+    ) -> list[ArticleAuthorLink]:
         await self.db.execute(
             delete(ArticleAuthorLink).where(ArticleAuthorLink.article_id == article_id)
         )

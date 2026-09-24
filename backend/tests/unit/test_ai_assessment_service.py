@@ -17,8 +17,8 @@ from uuid import uuid4
 import pytest
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.services.ai_assessment_service import AIAssessmentService
 from app.infrastructure.storage import StorageAdapter
+from app.services.ai_assessment_service import AIAssessmentService
 
 
 @pytest.fixture
@@ -38,15 +38,20 @@ def mock_storage():
 @pytest.fixture
 def service(mock_db, mock_storage):
     """Fixture do AIAssessmentService com mocks (Phase 2 refactored)."""
-    with patch("app.services.ai_assessment_service.ArticleRepository") as mock_article_repo, \
-         patch("app.services.ai_assessment_service.ArticleFileRepository") as mock_file_repo, \
-         patch("app.services.ai_assessment_service.ProjectRepository") as mock_project_repo, \
-         patch("app.services.ai_assessment_service.AssessmentItemRepository") as mock_item_repo, \
-         patch("app.services.ai_assessment_service.AIAssessmentRunRepository") as mock_run_repo, \
-         patch("app.services.ai_assessment_service.AIAssessmentConfigRepository") as mock_config_repo, \
-         patch("app.services.ai_assessment_service.AIAssessmentPromptRepository") as mock_prompt_repo, \
-         patch("app.services.ai_assessment_service.AISuggestionRepository") as mock_suggestion_repo:
-
+    with (
+        patch("app.services.ai_assessment_service.ArticleRepository") as mock_article_repo,
+        patch("app.services.ai_assessment_service.ArticleFileRepository") as mock_file_repo,
+        patch("app.services.ai_assessment_service.ProjectRepository") as mock_project_repo,
+        patch("app.services.ai_assessment_service.AssessmentItemRepository") as mock_item_repo,
+        patch("app.services.ai_assessment_service.AIAssessmentRunRepository") as mock_run_repo,
+        patch(
+            "app.services.ai_assessment_service.AIAssessmentConfigRepository"
+        ) as mock_config_repo,
+        patch(
+            "app.services.ai_assessment_service.AIAssessmentPromptRepository"
+        ) as mock_prompt_repo,
+        patch("app.services.ai_assessment_service.AISuggestionRepository") as mock_suggestion_repo,
+    ):
         # Mock repositories (Phase 2 includes new repos)
         mock_article_repo_instance = MagicMock()
         mock_article_repo.return_value = mock_article_repo_instance
@@ -216,7 +221,9 @@ class TestAIAssessmentServicePDF:
         assert result["type"] == "input_file"
         assert result["filename"] == "paper.pdf"
         assert size == len(pdf_content)
-        mock_storage.download.assert_called_once_with("articles", "project-123/article-456/paper.pdf")
+        mock_storage.download.assert_called_once_with(
+            "articles", "project-123/article-456/paper.pdf"
+        )
 
     @pytest.mark.asyncio
     async def test_prepare_pdf_no_source(self, service):
@@ -249,12 +256,14 @@ class TestAIAssessmentServiceAPI:
                     "content": [
                         {
                             "type": "output_text",
-                            "text": json.dumps({
-                                "selected_level": "High",
-                                "confidence_score": 0.9,
-                                "justification": "Clear methodology",
-                                "evidence_passages": [{"text": "We used...", "page_number": 3}],
-                            }),
+                            "text": json.dumps(
+                                {
+                                    "selected_level": "High",
+                                    "confidence_score": 0.9,
+                                    "justification": "Clear methodology",
+                                    "evidence_passages": [{"text": "We used...", "page_number": 3}],
+                                }
+                            ),
                         }
                     ],
                 }
@@ -398,12 +407,14 @@ class TestAIAssessmentServiceAssess:
                     "content": [
                         {
                             "type": "output_text",
-                            "text": json.dumps({
-                                "selected_level": "Yes",
-                                "confidence_score": 0.85,
-                                "justification": "Clearly stated",
-                                "evidence_passages": [],
-                            }),
+                            "text": json.dumps(
+                                {
+                                    "selected_level": "Yes",
+                                    "confidence_score": 0.85,
+                                    "justification": "Clearly stated",
+                                    "evidence_passages": [],
+                                }
+                            ),
                         }
                     ],
                 }
@@ -411,8 +422,10 @@ class TestAIAssessmentServiceAssess:
             "usage": {"input_tokens": 500, "output_tokens": 100},
         }
 
-        with patch("httpx.AsyncClient") as mock_client, \
-             patch("app.services.ai_assessment_service.AISuggestion") as mock_suggestion_class:
+        with (
+            patch("httpx.AsyncClient") as mock_client,
+            patch("app.services.ai_assessment_service.AISuggestion") as mock_suggestion_class,
+        ):
             mock_response = MagicMock()
             mock_response.is_success = True
             mock_response.json.return_value = ai_response
@@ -473,7 +486,9 @@ class TestAIAssessmentServiceAssess:
             )
 
         # Verify run was failed
-        service._runs.fail_run.assert_called_once_with(run_id, "Assessment item not found: " + str(item_id))
+        service._runs.fail_run.assert_called_once_with(
+            run_id, "Assessment item not found: " + str(item_id)
+        )
 
     @pytest.mark.asyncio
     async def test_assess_with_extraction_instance_id(self, service):
@@ -516,12 +531,16 @@ class TestAIAssessmentServiceAssess:
             "usage": {"input_tokens": 10, "output_tokens": 5},
         }
 
-        with patch("httpx.AsyncClient") as mock_client, \
-             patch("app.services.ai_assessment_service.AISuggestion"):
+        with (
+            patch("httpx.AsyncClient") as mock_client,
+            patch("app.services.ai_assessment_service.AISuggestion"),
+        ):
             mock_response = MagicMock()
             mock_response.is_success = True
             mock_response.json.return_value = ai_response
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
+                return_value=mock_response
+            )
 
             await service.assess(
                 project_id=project_id,
@@ -578,21 +597,35 @@ class TestAIAssessmentServiceAssessBatch:
             service._assessment_items.get_by_id = AsyncMock(return_value=mock_item)
 
         # Mock suggestions
-        service._suggestions.create = AsyncMock(side_effect=[
-            MagicMock(id=uuid4()) for _ in item_ids
-        ])
+        service._suggestions.create = AsyncMock(
+            side_effect=[MagicMock(id=uuid4()) for _ in item_ids]
+        )
 
         ai_response = {
-            "output": [{"type": "message", "content": [{"type": "output_text", "text": '{"selected_level": "Yes", "confidence_score": 0.8, "justification": "Test", "evidence_passages": []}'}]}],
+            "output": [
+                {
+                    "type": "message",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": '{"selected_level": "Yes", "confidence_score": 0.8, "justification": "Test", "evidence_passages": []}',
+                        }
+                    ],
+                }
+            ],
             "usage": {"input_tokens": 10, "output_tokens": 5},
         }
 
-        with patch("httpx.AsyncClient") as mock_client, \
-             patch("app.services.ai_assessment_service.AISuggestion"):
+        with (
+            patch("httpx.AsyncClient") as mock_client,
+            patch("app.services.ai_assessment_service.AISuggestion"),
+        ):
             mock_response = MagicMock()
             mock_response.is_success = True
             mock_response.json.return_value = ai_response
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
+                return_value=mock_response
+            )
 
             results = await service.assess_batch(
                 project_id=project_id,
@@ -651,9 +684,9 @@ class TestAIAssessmentServiceAssessBatch:
 
         service._assessment_items.get_by_id = get_item_by_id
 
-        service._suggestions.create = AsyncMock(side_effect=[
-            MagicMock(id=uuid4()) for _ in item_ids
-        ])
+        service._suggestions.create = AsyncMock(
+            side_effect=[MagicMock(id=uuid4()) for _ in item_ids]
+        )
 
         user_prompts_called = []
 
@@ -661,25 +694,41 @@ class TestAIAssessmentServiceAssessBatch:
         original_build_user_prompt = service._build_user_prompt
 
         def capture_user_prompt(item, project, levels, memory_context=None):
-            user_prompts_called.append({
-                "item_code": item.item_code,
-                "memory_context": memory_context,
-            })
+            user_prompts_called.append(
+                {
+                    "item_code": item.item_code,
+                    "memory_context": memory_context,
+                }
+            )
             return original_build_user_prompt(item, project, levels, memory_context)
 
         service._build_user_prompt = capture_user_prompt
 
         ai_response = {
-            "output": [{"type": "message", "content": [{"type": "output_text", "text": '{"selected_level": "Yes", "confidence_score": 0.8, "justification": "Test justification", "evidence_passages": []}'}]}],
+            "output": [
+                {
+                    "type": "message",
+                    "content": [
+                        {
+                            "type": "output_text",
+                            "text": '{"selected_level": "Yes", "confidence_score": 0.8, "justification": "Test justification", "evidence_passages": []}',
+                        }
+                    ],
+                }
+            ],
             "usage": {"input_tokens": 10, "output_tokens": 5},
         }
 
-        with patch("httpx.AsyncClient") as mock_client, \
-             patch("app.services.ai_assessment_service.AISuggestion"):
+        with (
+            patch("httpx.AsyncClient") as mock_client,
+            patch("app.services.ai_assessment_service.AISuggestion"),
+        ):
             mock_response = MagicMock()
             mock_response.is_success = True
             mock_response.json.return_value = ai_response
-            mock_client.return_value.__aenter__.return_value.post = AsyncMock(return_value=mock_response)
+            mock_client.return_value.__aenter__.return_value.post = AsyncMock(
+                return_value=mock_response
+            )
 
             await service.assess_batch(
                 project_id=project_id,
@@ -718,15 +767,16 @@ class TestAIAssessmentServiceEdgeCases:
         """Testa inicialização com BYOK."""
         custom_key = "sk-custom-key-123"
 
-        with patch("app.services.ai_assessment_service.ArticleRepository"), \
-             patch("app.services.ai_assessment_service.ArticleFileRepository"), \
-             patch("app.services.ai_assessment_service.ProjectRepository"), \
-             patch("app.services.ai_assessment_service.AssessmentItemRepository"), \
-             patch("app.services.ai_assessment_service.AIAssessmentRunRepository"), \
-             patch("app.services.ai_assessment_service.AIAssessmentConfigRepository"), \
-             patch("app.services.ai_assessment_service.AIAssessmentPromptRepository"), \
-             patch("app.services.ai_assessment_service.AISuggestionRepository"):
-
+        with (
+            patch("app.services.ai_assessment_service.ArticleRepository"),
+            patch("app.services.ai_assessment_service.ArticleFileRepository"),
+            patch("app.services.ai_assessment_service.ProjectRepository"),
+            patch("app.services.ai_assessment_service.AssessmentItemRepository"),
+            patch("app.services.ai_assessment_service.AIAssessmentRunRepository"),
+            patch("app.services.ai_assessment_service.AIAssessmentConfigRepository"),
+            patch("app.services.ai_assessment_service.AIAssessmentPromptRepository"),
+            patch("app.services.ai_assessment_service.AISuggestionRepository"),
+        ):
             service = AIAssessmentService(
                 db=mock_db,
                 user_id="test-user",
@@ -739,16 +789,17 @@ class TestAIAssessmentServiceEdgeCases:
 
     def test_byok_defaults_to_settings(self, mock_db, mock_storage):
         """Testa que BYOK usa settings quando não fornecido."""
-        with patch("app.services.ai_assessment_service.settings") as mock_settings, \
-             patch("app.services.ai_assessment_service.ArticleRepository"), \
-             patch("app.services.ai_assessment_service.ArticleFileRepository"), \
-             patch("app.services.ai_assessment_service.ProjectRepository"), \
-             patch("app.services.ai_assessment_service.AssessmentItemRepository"), \
-             patch("app.services.ai_assessment_service.AIAssessmentRunRepository"), \
-             patch("app.services.ai_assessment_service.AIAssessmentConfigRepository"), \
-             patch("app.services.ai_assessment_service.AIAssessmentPromptRepository"), \
-             patch("app.services.ai_assessment_service.AISuggestionRepository"):
-
+        with (
+            patch("app.services.ai_assessment_service.settings") as mock_settings,
+            patch("app.services.ai_assessment_service.ArticleRepository"),
+            patch("app.services.ai_assessment_service.ArticleFileRepository"),
+            patch("app.services.ai_assessment_service.ProjectRepository"),
+            patch("app.services.ai_assessment_service.AssessmentItemRepository"),
+            patch("app.services.ai_assessment_service.AIAssessmentRunRepository"),
+            patch("app.services.ai_assessment_service.AIAssessmentConfigRepository"),
+            patch("app.services.ai_assessment_service.AIAssessmentPromptRepository"),
+            patch("app.services.ai_assessment_service.AISuggestionRepository"),
+        ):
             mock_settings.OPENAI_API_KEY = "sk-default-key"
 
             service = AIAssessmentService(

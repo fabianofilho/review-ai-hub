@@ -11,7 +11,7 @@ from httpx import AsyncClient
 
 class TestSectionExtractionEndpoints:
     """Integration tests for section extraction endpoints."""
-    
+
     @pytest.mark.asyncio
     async def test_section_extraction_validation_single_mode(
         self,
@@ -28,9 +28,9 @@ class TestSectionExtractionEndpoints:
                 # Falta entityTypeId
             },
         )
-        
+
         assert response.status_code in (400, 422)
-    
+
     @pytest.mark.asyncio
     async def test_section_extraction_validation_batch_mode(
         self,
@@ -48,9 +48,9 @@ class TestSectionExtractionEndpoints:
                 # Falta parentInstanceId
             },
         )
-        
+
         assert response.status_code in (400, 422)
-    
+
     @pytest.mark.asyncio
     async def test_section_extraction_valid_request(
         self,
@@ -58,7 +58,7 @@ class TestSectionExtractionEndpoints:
     ) -> None:
         """Test extraction with valid request."""
         from app.services.section_extraction_service import SectionExtractionResult
-        
+
         with patch(
             "app.api.v1.endpoints.section_extraction.SectionExtractionService"
         ) as mock_service_class:
@@ -74,7 +74,7 @@ class TestSectionExtractionEndpoints:
                     duration_ms=1500.0,
                 )
             )
-            
+
             response = await client.post(
                 "/api/v1/extraction/sections",
                 json={
@@ -84,11 +84,11 @@ class TestSectionExtractionEndpoints:
                     "entityTypeId": str(uuid4()),
                 },
             )
-            
+
             assert response.status_code == 200
             data = response.json()
             assert data.get("ok") is True
-    
+
     @pytest.mark.asyncio
     async def test_section_extraction_batch_valid_request(
         self,
@@ -96,7 +96,7 @@ class TestSectionExtractionEndpoints:
     ) -> None:
         """Test batch extraction with valid request."""
         from app.services.section_extraction_service import BatchExtractionResult
-        
+
         with patch(
             "app.api.v1.endpoints.section_extraction.SectionExtractionService"
         ) as mock_service_class:
@@ -113,7 +113,7 @@ class TestSectionExtractionEndpoints:
                     sections=[],
                 )
             )
-            
+
             response = await client.post(
                 "/api/v1/extraction/sections",
                 json={
@@ -124,7 +124,7 @@ class TestSectionExtractionEndpoints:
                     "parentInstanceId": str(uuid4()),
                 },
             )
-            
+
             assert response.status_code == 200
             data = response.json()
             assert data.get("ok") is True
@@ -132,7 +132,7 @@ class TestSectionExtractionEndpoints:
 
 class TestModelExtractionEndpoints:
     """Integration tests for model extraction endpoints."""
-    
+
     @pytest.mark.asyncio
     async def test_model_extraction_validation(
         self,
@@ -144,9 +144,9 @@ class TestModelExtractionEndpoints:
             "/api/v1/extraction/models",
             json={},
         )
-        
+
         assert response.status_code in (400, 422)
-    
+
     @pytest.mark.asyncio
     async def test_model_extraction_valid_request(
         self,
@@ -154,7 +154,7 @@ class TestModelExtractionEndpoints:
     ) -> None:
         """Test model extraction with valid request."""
         from app.services.model_extraction_service import ModelExtractionResult
-        
+
         with patch(
             "app.api.v1.endpoints.model_extraction.ModelExtractionService"
         ) as mock_service_class:
@@ -171,7 +171,7 @@ class TestModelExtractionEndpoints:
                     duration_ms=1500.0,
                 )
             )
-            
+
             response = await client.post(
                 "/api/v1/extraction/models",
                 json={
@@ -180,8 +180,7 @@ class TestModelExtractionEndpoints:
                     "templateId": str(uuid4()),
                 },
             )
-            
+
             assert response.status_code == 200
             data = response.json()
             assert data.get("ok") is True
-

@@ -13,7 +13,6 @@ These tests verify the migration was successful and everything works end-to-end.
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from uuid import uuid4
 
 
 @pytest.mark.asyncio
@@ -110,9 +109,19 @@ class TestAssessmentCompatibilityView:
 
         # Should have old column names for compatibility
         expected_columns = [
-            "id", "project_id", "article_id", "user_id", "responses",
-            "overall_assessment", "notes", "status", "is_blind",
-            "can_see_others", "metadata", "created_at", "updated_at"
+            "id",
+            "project_id",
+            "article_id",
+            "user_id",
+            "responses",
+            "overall_assessment",
+            "notes",
+            "status",
+            "is_blind",
+            "can_see_others",
+            "metadata",
+            "created_at",
+            "updated_at",
         ]
 
         for col in expected_columns:
@@ -120,9 +129,7 @@ class TestAssessmentCompatibilityView:
 
     async def test_view_can_be_queried(self, db_session: AsyncSession) -> None:
         """Verify VIEW can be queried like old table."""
-        result = await db_session.execute(
-            text("SELECT COUNT(*) FROM assessments")
-        )
+        result = await db_session.execute(text("SELECT COUNT(*) FROM assessments"))
         row = result.fetchone()
         assert row is not None
         assert row[0] >= 0
@@ -182,7 +189,7 @@ class TestAssessmentIndexes:
         expected_patterns = [
             "assessment_instances",  # At least primary key
             "assessment_responses",  # At least primary key
-            "assessment_evidence",   # At least primary key
+            "assessment_evidence",  # At least primary key
         ]
 
         for pattern in expected_patterns:
@@ -340,27 +347,21 @@ class TestAssessmentWorkflow:
 
     async def test_can_count_instances(self, db_session: AsyncSession) -> None:
         """Test counting assessment instances."""
-        result = await db_session.execute(
-            text("SELECT COUNT(*) FROM assessment_instances")
-        )
+        result = await db_session.execute(text("SELECT COUNT(*) FROM assessment_instances"))
         row = result.fetchone()
         assert row is not None
         assert row[0] >= 0
 
     async def test_can_count_responses(self, db_session: AsyncSession) -> None:
         """Test counting assessment responses."""
-        result = await db_session.execute(
-            text("SELECT COUNT(*) FROM assessment_responses")
-        )
+        result = await db_session.execute(text("SELECT COUNT(*) FROM assessment_responses"))
         row = result.fetchone()
         assert row is not None
         assert row[0] >= 0
 
     async def test_can_count_evidence(self, db_session: AsyncSession) -> None:
         """Test counting assessment evidence."""
-        result = await db_session.execute(
-            text("SELECT COUNT(*) FROM assessment_evidence")
-        )
+        result = await db_session.execute(text("SELECT COUNT(*) FROM assessment_evidence"))
         row = result.fetchone()
         assert row is not None
         assert row[0] >= 0
@@ -485,8 +486,9 @@ class TestAssessmentCheckConstraints:
         constraints = [row[0] for row in result.fetchall()]
 
         # Should have constraint preventing extraction_instance_id on non-root
-        assert any("extraction" in c.lower() for c in constraints), \
+        assert any("extraction" in c.lower() for c in constraints), (
             "Missing extraction_instance_id constraint"
+        )
 
 
 @pytest.mark.asyncio

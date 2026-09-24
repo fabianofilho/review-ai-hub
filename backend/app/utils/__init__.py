@@ -31,4 +31,3 @@ __all__ = [
     "format_model_extraction_response",
     "format_section_extraction_response",
 ]
-

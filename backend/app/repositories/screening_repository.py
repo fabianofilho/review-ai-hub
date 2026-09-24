@@ -4,6 +4,7 @@ Screening Repositories.
 Data access layer for the screening workflow models.
 """
 
+from datetime import UTC
 from uuid import UUID
 
 from sqlalchemy import and_, func, select
@@ -95,9 +96,7 @@ class ScreeningDecisionRepository(BaseRepository[ScreeningDecision]):
         )
         return result.scalar_one_or_none()
 
-    async def count_by_decision(
-        self, project_id: UUID | str, phase: str
-    ) -> dict[str, int]:
+    async def count_by_decision(self, project_id: UUID | str, phase: str) -> dict[str, int]:
         """Count decisions grouped by decision value."""
         result = await self.db.execute(
             select(
@@ -114,9 +113,7 @@ class ScreeningDecisionRepository(BaseRepository[ScreeningDecision]):
         )
         return {row[0]: row[1] for row in result.all()}
 
-    async def count_screened_articles(
-        self, project_id: UUID | str, phase: str
-    ) -> int:
+    async def count_screened_articles(self, project_id: UUID | str, phase: str) -> int:
         """Count distinct articles that have been screened."""
         result = await self.db.execute(
             select(func.count(func.distinct(ScreeningDecision.article_id))).where(
@@ -135,9 +132,7 @@ class ScreeningConflictRepository(BaseRepository[ScreeningConflict]):
     def __init__(self, db: AsyncSession):
         super().__init__(db, ScreeningConflict)
 
-    async def get_unresolved(
-        self, project_id: UUID | str, phase: str
-    ) -> list[ScreeningConflict]:
+    async def get_unresolved(self, project_id: UUID | str, phase: str) -> list[ScreeningConflict]:
         """Get all unresolved conflicts."""
         result = await self.db.execute(
             select(ScreeningConflict).where(
@@ -165,9 +160,7 @@ class ScreeningConflictRepository(BaseRepository[ScreeningConflict]):
         )
         return result.scalar_one_or_none()
 
-    async def count_unresolved(
-        self, project_id: UUID | str, phase: str
-    ) -> int:
+    async def count_unresolved(self, project_id: UUID | str, phase: str) -> int:
         """Count unresolved conflicts."""
         result = await self.db.execute(
             select(func.count()).where(
@@ -209,20 +202,16 @@ class ScreeningRunRepository(BaseRepository[ScreeningRun]):
 
     async def start_run(self, run_id: UUID | str) -> ScreeningRun | None:
         """Mark a run as started."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         run = await self.get_by_id(run_id)
         if run:
-            return await self.update(
-                run, {"status": "running", "started_at": datetime.now(timezone.utc)}
-            )
+            return await self.update(run, {"status": "running", "started_at": datetime.now(UTC)})
         return None
 
-    async def complete_run(
-        self, run_id: UUID | str, results: dict
-    ) -> ScreeningRun | None:
+    async def complete_run(self, run_id: UUID | str, results: dict) -> ScreeningRun | None:
         """Mark a run as completed."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         run = await self.get_by_id(run_id)
         if run:
@@ -231,16 +220,14 @@ class ScreeningRunRepository(BaseRepository[ScreeningRun]):
                 {
                     "status": "completed",
                     "results": results,
-                    "completed_at": datetime.now(timezone.utc),
+                    "completed_at": datetime.now(UTC),
                 },
             )
         return None
 
-    async def fail_run(
-        self, run_id: UUID | str, error_message: str
-    ) -> ScreeningRun | None:
+    async def fail_run(self, run_id: UUID | str, error_message: str) -> ScreeningRun | None:
         """Mark a run as failed."""
-        from datetime import datetime, timezone
+        from datetime import datetime
 
         run = await self.get_by_id(run_id)
         if run:
@@ -249,7 +236,7 @@ class ScreeningRunRepository(BaseRepository[ScreeningRun]):
                 {
                     "status": "failed",
                     "error_message": error_message,
-                    "completed_at": datetime.now(timezone.utc),
+                    "completed_at": datetime.now(UTC),
                 },
             )
         return None

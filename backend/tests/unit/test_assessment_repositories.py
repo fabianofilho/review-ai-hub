@@ -9,24 +9,23 @@ Tests the restructured assessment module:
 Following the extraction pattern architecture.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from unittest.mock import AsyncMock, MagicMock, patch
 from uuid import uuid4
 
 import pytest
-from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.assessment import (
+    AssessmentEvidence,
     AssessmentInstance,
     AssessmentResponse,
-    AssessmentEvidence,
     AssessmentSource,
 )
 from app.repositories.assessment_repository import (
+    AssessmentEvidenceRepository,
     AssessmentInstanceRepository,
     AssessmentResponseRepository,
-    AssessmentEvidenceRepository,
 )
 
 
@@ -96,8 +95,8 @@ class TestAssessmentInstanceRepository:
         instance.is_blind = False
         instance.can_see_others = True
         instance.meta = {}
-        instance.created_at = datetime.now(timezone.utc)
-        instance.updated_at = datetime.now(timezone.utc)
+        instance.created_at = datetime.now(UTC)
+        instance.updated_at = datetime.now(UTC)
         instance.responses = []
         return instance
 
@@ -224,8 +223,8 @@ class TestAssessmentResponseRepository:
         response.ai_suggestion_id = None
         response.project_id = project_id
         response.article_id = article_id
-        response.created_at = datetime.now(timezone.utc)
-        response.updated_at = datetime.now(timezone.utc)
+        response.created_at = datetime.now(UTC)
+        response.updated_at = datetime.now(UTC)
         return response
 
     @pytest.mark.asyncio
@@ -278,6 +277,7 @@ class TestAssessmentResponseRepository:
         # Mock refresh behavior
         async def mock_refresh(obj):
             pass
+
         mock_db.refresh = AsyncMock(side_effect=mock_refresh)
 
         result = await repo.bulk_create(responses)
@@ -324,7 +324,7 @@ class TestAssessmentResponseRepository:
         }
 
         # Create new response object for the add
-        with patch.object(repo, '_model', AssessmentResponse):
+        with patch.object(repo, "_model", AssessmentResponse):
             response = await repo.upsertResponse(data)
 
         # Should call add for new object
@@ -345,10 +345,7 @@ class TestAssessmentResponseRepository:
         mock_result.scalars.return_value.all.return_value = [ai_response]
         mock_db.execute.return_value = mock_result
 
-        responses = await repo.get_by_article(
-            article_id,
-            source=AssessmentSource.AI
-        )
+        responses = await repo.get_by_article(article_id, source=AssessmentSource.AI)
 
         assert len(responses) == 1
         assert responses[0].source == AssessmentSource.AI
@@ -374,7 +371,7 @@ class TestAssessmentEvidenceRepository:
         evidence.position = {"x": 100, "y": 200, "width": 50, "height": 20}
         evidence.text_content = "This is evidence from the PDF"
         evidence.created_by = reviewer_id
-        evidence.created_at = datetime.now(timezone.utc)
+        evidence.created_at = datetime.now(UTC)
         return evidence
 
     @pytest.mark.asyncio

@@ -19,11 +19,11 @@ from sqlalchemy import (
     UniqueConstraint,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, BaseModel, PostgreSQLEnumType, UUIDMixin
-
 
 # =============================================================================
 # PYTHON ENUMS (mirrors PostgreSQL ENUM types)
@@ -198,7 +198,10 @@ class ScreeningDecision(BaseModel):
 
     __table_args__ = (
         UniqueConstraint(
-            "project_id", "article_id", "reviewer_id", "phase",
+            "project_id",
+            "article_id",
+            "reviewer_id",
+            "phase",
             name="uq_screening_decisions_article_reviewer_phase",
         ),
         Index(
@@ -282,7 +285,9 @@ class ScreeningConflict(BaseModel):
 
     __table_args__ = (
         UniqueConstraint(
-            "project_id", "article_id", "phase",
+            "project_id",
+            "article_id",
+            "phase",
             name="uq_screening_conflicts_article_phase",
         ),
         {"schema": "public"},

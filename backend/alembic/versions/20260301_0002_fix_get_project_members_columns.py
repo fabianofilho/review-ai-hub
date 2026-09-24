@@ -13,13 +13,11 @@ It also omitted the `id` (project_members.id) and `permissions` columns,
 which the frontend needs for update/delete operations.
 """
 
-from typing import Union
-
 from alembic import op
 
 # revision identifiers, used by Alembic.
 revision: str = "0002"
-down_revision: Union[str, None] = "0001"
+down_revision: str | None = "0001"
 branch_labels = None
 depends_on = None
 
@@ -61,7 +59,9 @@ def upgrade() -> None:
                """)
     # Re-grant after DROP+CREATE (GRANT ALL ON ALL ROUTINES only covers
     # functions that existed at grant time; the new function needs it explicitly)
-    op.execute("GRANT EXECUTE ON FUNCTION get_project_members(uuid) TO authenticated, service_role;")
+    op.execute(
+        "GRANT EXECUTE ON FUNCTION get_project_members(uuid) TO authenticated, service_role;"
+    )
 
 
 def downgrade() -> None:

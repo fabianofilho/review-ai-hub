@@ -23,9 +23,9 @@ class TestAIAssessmentEndpoints:
             "/api/v1/assessment/ai",
             json={},
         )
-        
+
         assert response.status_code in (400, 422)
-    
+
     @pytest.mark.asyncio
     async def test_ai_assessment_valid_request(
         self,
@@ -33,10 +33,8 @@ class TestAIAssessmentEndpoints:
     ) -> None:
         """Test AI assessment with valid request."""
         from app.services.ai_assessment_service import AssessmentResult
-        
-        with patch(
-            "app.api.v1.endpoints.ai_assessment.AIAssessmentService"
-        ) as mock_service_class:
+
+        with patch("app.api.v1.endpoints.ai_assessment.AIAssessmentService") as mock_service_class:
             mock_service = mock_service_class.return_value
             mock_service.assess = AsyncMock(
                 return_value=AssessmentResult(
@@ -51,7 +49,7 @@ class TestAIAssessmentEndpoints:
                     method_used="direct",
                 )
             )
-            
+
             response = await client.post(
                 "/api/v1/assessment/ai",
                 json={
@@ -61,11 +59,11 @@ class TestAIAssessmentEndpoints:
                     "instrumentId": str(uuid4()),
                 },
             )
-            
+
             assert response.status_code == 200
             data = response.json()
             assert data.get("ok") is True
-    
+
     @pytest.mark.asyncio
     async def test_ai_assessment_with_pdf_source(
         self,
@@ -73,10 +71,8 @@ class TestAIAssessmentEndpoints:
     ) -> None:
         """Test AI assessment specifying PDF source."""
         from app.services.ai_assessment_service import AssessmentResult
-        
-        with patch(
-            "app.api.v1.endpoints.ai_assessment.AIAssessmentService"
-        ) as mock_service_class:
+
+        with patch("app.api.v1.endpoints.ai_assessment.AIAssessmentService") as mock_service_class:
             mock_service = mock_service_class.return_value
             mock_service.assess = AsyncMock(
                 return_value=AssessmentResult(
@@ -91,7 +87,7 @@ class TestAIAssessmentEndpoints:
                     method_used="direct",
                 )
             )
-            
+
             response = await client.post(
                 "/api/v1/assessment/ai",
                 json={
@@ -102,9 +98,9 @@ class TestAIAssessmentEndpoints:
                     "pdfStorageKey": "articles/project-id/article-id/main.pdf",
                 },
             )
-            
+
             assert response.status_code == 200
-    
+
     @pytest.mark.asyncio
     async def test_ai_assessment_force_file_search(
         self,
@@ -112,10 +108,8 @@ class TestAIAssessmentEndpoints:
     ) -> None:
         """Test AI assessment with force_file_search."""
         from app.services.ai_assessment_service import AssessmentResult
-        
-        with patch(
-            "app.api.v1.endpoints.ai_assessment.AIAssessmentService"
-        ) as mock_service_class:
+
+        with patch("app.api.v1.endpoints.ai_assessment.AIAssessmentService") as mock_service_class:
             mock_service = mock_service_class.return_value
             mock_service.assess = AsyncMock(
                 return_value=AssessmentResult(
@@ -130,7 +124,7 @@ class TestAIAssessmentEndpoints:
                     method_used="file_search",
                 )
             )
-            
+
             response = await client.post(
                 "/api/v1/assessment/ai",
                 json={
@@ -141,7 +135,7 @@ class TestAIAssessmentEndpoints:
                     "forceFileSearch": True,
                 },
             )
-            
+
             assert response.status_code == 200
 
 
@@ -155,10 +149,10 @@ class TestResponseHeaders:
     ) -> None:
         """Test that X-Trace-Id is present in responses."""
         response = await client.get("/health")
-        
+
         assert response.status_code == 200
         assert "x-trace-id" in response.headers
-    
+
     @pytest.mark.asyncio
     async def test_response_time_header(
         self,
@@ -173,4 +167,3 @@ class TestResponseHeaders:
         # Should be a numeric value in ms
         time_str = response.headers["x-response-time"]
         assert "ms" in time_str
-

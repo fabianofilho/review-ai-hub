@@ -18,9 +18,7 @@ class TestProjectsQueries:
 
     async def test_count_projects(self, db_session: AsyncSession) -> None:
         """Conta projetos existentes."""
-        result = await db_session.execute(
-            text("SELECT COUNT(*) FROM projects")
-        )
+        result = await db_session.execute(text("SELECT COUNT(*) FROM projects"))
         row = result.fetchone()
         assert row is not None
         # Pode ter 0 ou mais projetos
@@ -47,9 +45,7 @@ class TestArticlesQueries:
 
     async def test_count_articles(self, db_session: AsyncSession) -> None:
         """Conta artigos existentes."""
-        result = await db_session.execute(
-            text("SELECT COUNT(*) FROM articles")
-        )
+        result = await db_session.execute(text("SELECT COUNT(*) FROM articles"))
         row = result.fetchone()
         assert row is not None
         assert row[0] >= 0
@@ -74,18 +70,14 @@ class TestAssessmentQueries:
 
     async def test_count_assessment_instruments(self, db_session: AsyncSession) -> None:
         """Conta instrumentos de avaliação."""
-        result = await db_session.execute(
-            text("SELECT COUNT(*) FROM assessment_instruments")
-        )
+        result = await db_session.execute(text("SELECT COUNT(*) FROM assessment_instruments"))
         row = result.fetchone()
         assert row is not None
         assert row[0] >= 0
 
     async def test_count_assessment_items(self, db_session: AsyncSession) -> None:
         """Conta itens de avaliação."""
-        result = await db_session.execute(
-            text("SELECT COUNT(*) FROM assessment_items")
-        )
+        result = await db_session.execute(text("SELECT COUNT(*) FROM assessment_items"))
         row = result.fetchone()
         assert row is not None
         assert row[0] >= 0
@@ -116,18 +108,14 @@ class TestExtractionQueries:
 
     async def test_count_extraction_templates(self, db_session: AsyncSession) -> None:
         """Conta templates de extração globais."""
-        result = await db_session.execute(
-            text("SELECT COUNT(*) FROM extraction_templates_global")
-        )
+        result = await db_session.execute(text("SELECT COUNT(*) FROM extraction_templates_global"))
         row = result.fetchone()
         assert row is not None
         assert row[0] >= 0
 
     async def test_count_extraction_entity_types(self, db_session: AsyncSession) -> None:
         """Conta tipos de entidade."""
-        result = await db_session.execute(
-            text("SELECT COUNT(*) FROM extraction_entity_types")
-        )
+        result = await db_session.execute(text("SELECT COUNT(*) FROM extraction_entity_types"))
         row = result.fetchone()
         assert row is not None
         assert row[0] >= 0
@@ -157,9 +145,7 @@ class TestIntegrationQueries:
 
     async def test_count_zotero_integrations(self, db_session: AsyncSession) -> None:
         """Conta integrações Zotero."""
-        result = await db_session.execute(
-            text("SELECT COUNT(*) FROM zotero_integrations")
-        )
+        result = await db_session.execute(text("SELECT COUNT(*) FROM zotero_integrations"))
         row = result.fetchone()
         assert row is not None
         assert row[0] >= 0
@@ -209,4 +195,3 @@ class TestComplexQueries:
         )
         rows = result.fetchall()
         assert isinstance(rows, list)
-

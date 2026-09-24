@@ -26,12 +26,12 @@ def _run_in_worker_loop(coro):
     rate_limit="5/m",
 )
 def export_articles_task(
-        self,
-        project_id: str,
-        article_ids: list[str],
-        formats: list[str],
-        file_scope: str,
-        user_id: str,
+    self,
+    project_id: str,
+    article_ids: list[str],
+    formats: list[str],
+    file_scope: str,
+    user_id: str,
 ) -> dict:
     """
     Task para exportação de artigos em background.
