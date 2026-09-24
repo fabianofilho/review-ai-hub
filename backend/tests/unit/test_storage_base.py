@@ -41,6 +41,12 @@ class DelegatingAdapter(StorageAdapter):
     ) -> list[dict[str, Any]]:
         return await super().list_files(bucket, prefix, limit)
 
+    async def get_signed_url(self, bucket: str, path: str, expires_in: int = 3600) -> str:
+        return await super().get_signed_url(bucket, path, expires_in)
+
+    async def move(self, bucket: str, from_path: str, to_path: str) -> bool:
+        return await super().move(bucket, from_path, to_path)
+
 
 class TestStorageAdapterInterface:
     def test_cannot_instantiate_abstract_base(self):
@@ -56,13 +62,30 @@ class TestStorageAdapterInterface:
             PartialAdapter()
 
         message = str(exc_info.value)
-        for name in ("upload", "delete", "exists", "get_public_url", "list_files"):
+        for name in (
+            "upload",
+            "delete",
+            "exists",
+            "get_public_url",
+            "list_files",
+            "get_signed_url",
+            "move",
+        ):
             assert name in message
         assert "download" not in message
 
     def test_declares_expected_abstract_methods(self):
         assert StorageAdapter.__abstractmethods__ == frozenset(
-            {"download", "upload", "delete", "exists", "get_public_url", "list_files"}
+            {
+                "download",
+                "upload",
+                "delete",
+                "exists",
+                "get_public_url",
+                "list_files",
+                "get_signed_url",
+                "move",
+            }
         )
 
     async def test_base_method_bodies_provide_no_implementation(self):
@@ -74,6 +97,8 @@ class TestStorageAdapterInterface:
         assert await adapter.exists("b", "p") is None
         assert await adapter.get_public_url("b", "p") is None
         assert await adapter.list_files("b") is None
+        assert await adapter.get_signed_url("b", "p") is None
+        assert await adapter.move("b", "p", "q") is None
 
 
 class TestStorageError:

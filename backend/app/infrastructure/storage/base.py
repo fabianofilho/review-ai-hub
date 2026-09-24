@@ -124,6 +124,46 @@ class StorageAdapter(ABC):
         """
         pass
 
+    @abstractmethod
+    async def get_signed_url(
+        self,
+        bucket: str,
+        path: str,
+        expires_in: int = 3600,
+    ) -> str:
+        """
+        Get a signed URL that expires after `expires_in` seconds.
+
+        Args:
+            bucket: Bucket name.
+            path: File path.
+            expires_in: Validity of the URL in seconds.
+
+        Returns:
+            Signed URL, or an empty string when none was issued.
+        """
+        pass
+
+    @abstractmethod
+    async def move(
+        self,
+        bucket: str,
+        from_path: str,
+        to_path: str,
+    ) -> bool:
+        """
+        Move a file within the bucket.
+
+        Args:
+            bucket: Bucket name.
+            from_path: Source path.
+            to_path: Destination path.
+
+        Returns:
+            True if the file was moved.
+        """
+        pass
+
 
 class StorageError(Exception):
     """Erro genérico de storage."""
