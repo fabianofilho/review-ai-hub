@@ -4,6 +4,7 @@ Assessment Repository.
 Manages access to assessment and instrument data.
 """
 
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select, update
@@ -225,7 +226,7 @@ class AIAssessmentRunRepository(BaseRepository[AIAssessmentRun]):
         instrument_id: UUID,
         created_by: UUID,
         stage: str,
-        parameters: dict,
+        parameters: dict[str, Any],
         extraction_instance_id: UUID | None = None,
         is_project_instrument: bool = False,
     ) -> AIAssessmentRun:
@@ -287,7 +288,7 @@ class AIAssessmentRunRepository(BaseRepository[AIAssessmentRun]):
         )
         await self.db.flush()
 
-    async def complete_run(self, run_id: UUID, results: dict) -> None:
+    async def complete_run(self, run_id: UUID, results: dict[str, Any]) -> None:
         """
         Mark run as 'completed' and store results.
         Args:

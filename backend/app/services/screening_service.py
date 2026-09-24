@@ -6,6 +6,7 @@ decisions, conflicts, progress, inter-rater reliability.
 """
 
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import and_, func, select
@@ -49,7 +50,7 @@ class ScreeningService(LoggerMixin):
         phase: str,
         require_dual_review: bool = False,
         blind_mode: bool = False,
-        criteria: list[dict] | None = None,
+        criteria: list[dict[str, Any]] | None = None,
         ai_model_name: str | None = "gpt-4o-mini",
         ai_system_instruction: str | None = None,
     ) -> ScreeningConfig:
@@ -89,7 +90,7 @@ class ScreeningService(LoggerMixin):
         phase: str,
         decision: str,
         reason: str | None = None,
-        criteria_responses: dict | None = None,
+        criteria_responses: dict[str, Any] | None = None,
     ) -> ScreeningDecision:
         """
         Submit a screening decision.

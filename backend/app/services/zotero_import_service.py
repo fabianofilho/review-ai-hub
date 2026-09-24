@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.logging import LoggerMixin
 from app.infrastructure.storage import StorageAdapter
 from app.models.article import ArticleFile
-from app.models.article_author import ArticleAuthorLink, ArticleSyncRun
+from app.models.article_author import ArticleAuthorLink, ArticleSyncEvent, ArticleSyncRun
 from app.repositories.article_author_repository import (
     ArticleAuthorLinkRepository,
     ArticleAuthorRepository,
@@ -305,10 +305,8 @@ class ZoteroImportService(LoggerMixin):
                 project_id=project_id,
                 collection_key=source_run.source_collection_key,
             )
-        predefined_items = [
-            (event.event_payload or {}).get("item")
-            for event in failed_events
-            if (event.event_payload or {}).get("item")
+        predefined_items: list[dict[str, Any]] = [
+            item for event in failed_events if (item := (event.event_payload or {}).get("item"))
         ]
         result = await self.import_collection(
             project_id=project_id,
@@ -472,7 +470,8 @@ class ZoteroImportService(LoggerMixin):
         for row in creator_rows:
             display_name = row["display_name"]
             creator_type = row.get("creator_type") or "author"
-            raw_creator = row.get("raw") if isinstance(row.get("raw"), dict) else {}
+            raw = row.get("raw")
+            raw_creator: dict[str, Any] = raw if isinstance(raw, dict) else {}
             cache_key = self._canonical_creator_key(display_name, creator_type, raw_creator)
             author = author_cache.get(cache_key)
             if author is None:
@@ -579,7 +578,7 @@ class ZoteroImportService(LoggerMixin):
         status_filter: str | None,
         offset: int,
         limit: int,
-    ) -> tuple[list, int]:
+    ) -> tuple[list[ArticleSyncEvent], int]:
         return await self._sync_events.list_run_events(
             sync_run_id=sync_run_id,
             status_filter=status_filter,

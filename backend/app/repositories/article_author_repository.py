@@ -2,6 +2,7 @@
 Article author repository.
 """
 
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import delete, select
@@ -33,7 +34,7 @@ class ArticleAuthorRepository(BaseRepository[ArticleAuthor]):
         display_name: str,
         *,
         orcid: str | None = None,
-        source_hint: dict | None = None,
+        source_hint: dict[str, Any] | None = None,
     ) -> ArticleAuthor:
         normalized_name = normalize_author_name(display_name)
         existing = await self.get_by_identity(normalized_name, orcid)

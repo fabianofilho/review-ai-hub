@@ -24,6 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.logging import LoggerMixin
 from app.infrastructure.storage import StorageAdapter
+from app.models.assessment import AssessmentItem, ProjectAssessmentItem
 from app.models.extraction import AISuggestion
 from app.repositories import (
     AIAssessmentConfigRepository,
@@ -161,6 +162,7 @@ class AIAssessmentService(LoggerMixin):
         # 2. Start run
         await self._runs.start_run(run.id)
 
+        item: ProjectAssessmentItem | AssessmentItem | None
         try:
             # === Continue with existing logic ===
             # 1. Fetch metadata via repositories (project items first, then global)
@@ -397,6 +399,7 @@ class AIAssessmentService(LoggerMixin):
             use_file_search = approx_size > 10 * 1024 * 1024  # > 10MB
 
             # 4. Fetch all items ONCE (project items first, then global)
+            item: ProjectAssessmentItem | AssessmentItem | None
             items_by_id = {}
             for item_id in item_ids:
                 item = await self._project_assessment_items.get_by_id(item_id)
@@ -631,7 +634,8 @@ class AIAssessmentService(LoggerMixin):
 
         if isinstance(allowed_levels, str):
             try:
-                return json.loads(allowed_levels)
+                parsed: list[str] = json.loads(allowed_levels)
+                return parsed
             except Exception:
                 return []
 

@@ -5,9 +5,11 @@ Gerencia acesso a dados de integrações externas.
 """
 
 from datetime import UTC, datetime
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.integration import ZoteroIntegration
@@ -132,4 +134,5 @@ class ZoteroIntegrationRepository(BaseRepository[ZoteroIntegration]):
             .values(is_active=False)
         )
         await self.db.flush()
-        return result.rowcount > 0
+        # Session.execute() is typed as Result; an UPDATE runs as a CursorResult.
+        return cast(CursorResult[Any], result).rowcount > 0

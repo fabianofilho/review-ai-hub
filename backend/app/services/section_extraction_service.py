@@ -936,7 +936,7 @@ Example response format:
             else:
                 suggested_value = {"value": value}
 
-            metadata_: dict = {
+            metadata_: dict[str, Any] = {
                 "field_name": field_name,
                 "extraction_trace_id": self.trace_id,
             }

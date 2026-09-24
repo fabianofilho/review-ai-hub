@@ -239,10 +239,10 @@ class ModelExtractionService(LoggerMixin):
             return template
 
         # If not found, try global template
-        template = await self._global_templates.get_by_id(template_id)
+        global_template = await self._global_templates.get_by_id(template_id)
 
-        if template:
-            return template
+        if global_template:
+            return global_template
 
         raise ValueError(f"Template not found: {template_id}")
 

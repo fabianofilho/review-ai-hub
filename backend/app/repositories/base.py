@@ -44,10 +44,12 @@ from uuid import UUID
 from sqlalchemy import func, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.models.base import Base
+from app.models.base import UUIDMixin
 
 # Type var para modelo SQLAlchemy
-T = TypeVar("T", bound=Base)
+# Bound to UUIDMixin because the generic queries below filter on the UUID
+# primary key ``id``; every repository model is a Base subclass with this mixin.
+T = TypeVar("T", bound=UUIDMixin)
 
 
 class BaseRepository(Generic[T]):

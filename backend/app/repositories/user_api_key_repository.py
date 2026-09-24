@@ -7,10 +7,11 @@ seguindo o mesmo padrão de ZoteroIntegration.
 """
 
 from datetime import UTC, datetime
-from typing import Any
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import delete, select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.user_api_key import UserAPIKey
@@ -220,7 +221,8 @@ class UserAPIKeyRepository(BaseRepository[UserAPIKey]):
 
         result = await self.db.execute(stmt)
         await self.db.flush()
-        return result.rowcount
+        # Session.execute() is typed as Result; an UPDATE runs as a CursorResult.
+        return cast(CursorResult[Any], result).rowcount
 
     async def set_default(
         self,
@@ -328,7 +330,8 @@ class UserAPIKeyRepository(BaseRepository[UserAPIKey]):
             .values(is_active=False)
         )
         await self.db.flush()
-        return result.rowcount > 0
+        # Session.execute() is typed as Result; an UPDATE runs as a CursorResult.
+        return cast(CursorResult[Any], result).rowcount > 0
 
     async def hard_delete(
         self,
@@ -357,4 +360,5 @@ class UserAPIKeyRepository(BaseRepository[UserAPIKey]):
             )
         )
         await self.db.flush()
-        return result.rowcount > 0
+        # Session.execute() is typed as Result; a DELETE runs as a CursorResult.
+        return cast(CursorResult[Any], result).rowcount > 0

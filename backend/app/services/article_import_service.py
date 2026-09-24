@@ -6,6 +6,7 @@ Uses CanonicalArticlePayload and ArticleRepository for consistent normalization
 and deduplication across all ingestion flows.
 """
 
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -87,7 +88,7 @@ class ArticleImportService(LoggerMixin):
         self,
         *,
         project_id: UUID,
-        metadata: dict,
+        metadata: dict[str, Any],
         storage_key: str,
         original_filename: str,
         file_bytes: int = 0,

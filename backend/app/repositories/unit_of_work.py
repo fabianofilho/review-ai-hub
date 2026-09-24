@@ -65,6 +65,7 @@ SEM USAR UoW (não recomendado):
     await session.commit()  # Você controla o commit
 """
 
+from types import TracebackType
 from typing import Self
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -235,7 +236,12 @@ class UnitOfWork:
         """
         return self
 
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """
         Sai do contexto async.
 

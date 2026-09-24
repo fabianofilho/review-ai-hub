@@ -6,6 +6,7 @@ For title/abstract phase: sends text. For full-text phase: sends PDF.
 """
 
 import json
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import and_, select
@@ -155,7 +156,7 @@ class AIScreeningService(LoggerMixin):
         article_ids: list[UUID],
         phase: str,
         model: str = "gpt-4o-mini",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         AI-screen a batch of articles.
 
@@ -204,7 +205,7 @@ class AIScreeningService(LoggerMixin):
         await self.run_repo.complete_run(run.id, results)
         return results
 
-    def _build_criteria_prompt(self, criteria: list | dict) -> str:
+    def _build_criteria_prompt(self, criteria: list[Any] | dict[str, Any]) -> str:
         """Build a prompt section from screening criteria."""
         if not criteria:
             return "No specific criteria provided. Evaluate general relevance."
@@ -221,7 +222,7 @@ class AIScreeningService(LoggerMixin):
 
     async def _screen_title_abstract(
         self, article: Article, criteria_text: str, model: str
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Screen using title + abstract (chat completion)."""
         user_prompt = f"""Evaluate this article for inclusion in the systematic review.
 
@@ -252,7 +253,7 @@ Journal: {article.journal_title or "Not available"}
         project_id: UUID,  # noqa: ARG002
         criteria_text: str,
         model: str,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Screen using full PDF via Responses API."""
         # Find the main PDF
         result = await self.db.execute(

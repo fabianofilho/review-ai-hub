@@ -6,6 +6,7 @@ Allows cloning global instruments (PROBAST, ROBIS, etc.) to
 projects or creating custom instruments.
 """
 
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -417,7 +418,7 @@ class ProjectAssessmentInstrumentService(LoggerMixin):
 
     async def list_global_instruments(
         self,
-    ) -> list[dict]:
+    ) -> list[dict[str, Any]]:
         """
         List global instruments available for cloning.
 

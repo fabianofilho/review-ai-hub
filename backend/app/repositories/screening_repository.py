@@ -5,6 +5,7 @@ Data access layer for the screening workflow models.
 """
 
 from datetime import UTC
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import and_, func, select
@@ -186,7 +187,7 @@ class ScreeningRunRepository(BaseRepository[ScreeningRun]):
         phase: str,
         stage: str,
         created_by: UUID | str,
-        parameters: dict | None = None,
+        parameters: dict[str, Any] | None = None,
     ) -> ScreeningRun:
         """Create a new screening run."""
         run = ScreeningRun(
@@ -209,7 +210,9 @@ class ScreeningRunRepository(BaseRepository[ScreeningRun]):
             return await self.update(run, {"status": "running", "started_at": datetime.now(UTC)})
         return None
 
-    async def complete_run(self, run_id: UUID | str, results: dict) -> ScreeningRun | None:
+    async def complete_run(
+        self, run_id: UUID | str, results: dict[str, Any]
+    ) -> ScreeningRun | None:
         """Mark a run as completed."""
         from datetime import datetime
 

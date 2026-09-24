@@ -75,7 +75,7 @@ class OpenAIService(LoggerMixin):
         self._using_user_key = api_key is not None
 
     @property
-    def api_key(self) -> str:
+    def api_key(self) -> str | None:
         """Retorna API key (customizada ou global)."""
         if self._api_key:
             return self._api_key

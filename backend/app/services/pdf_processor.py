@@ -14,7 +14,7 @@ import re
 from dataclasses import dataclass
 from typing import Any
 
-from pypdf import PdfReader
+from pypdf import DocumentInformation, PdfReader
 
 from app.core.logging import LoggerMixin
 
@@ -76,7 +76,7 @@ class PDFProcessor(LoggerMixin):
         r"^(?:\d+\.?\s*)?supplementary",
     ]
 
-    def __init__(self):
+    def __init__(self) -> None:
         self._compiled_patterns = [
             re.compile(p, re.IGNORECASE | re.MULTILINE) for p in self.SECTION_PATTERNS
         ]
@@ -222,7 +222,7 @@ class PDFProcessor(LoggerMixin):
             pdf_file = io.BytesIO(pdf_data)
             reader = PdfReader(pdf_file)
 
-            metadata = reader.metadata or {}
+            metadata: DocumentInformation | dict[str, Any] = reader.metadata or {}
             md5_hash = hashlib.md5(pdf_data).hexdigest()
 
             # Calcular total de caracteres
