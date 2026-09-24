@@ -72,11 +72,15 @@ def test_downgrade_drops_policies_and_disables_rls():
         assert any(s.startswith(f'DROP POLICY IF EXISTS "{table}_select"') for s in statements)
 
 
-def test_migration_is_the_single_head_after_screening_tables():
+def test_migration_follows_screening_tables_on_the_single_head():
     config = Config(str(BACKEND_DIR / "alembic.ini"))
     config.set_main_option("script_location", str(BACKEND_DIR / "alembic"))
     script = ScriptDirectory.from_config(config)
 
-    assert script.get_heads() == ["20260924_008"]
+    heads = script.get_heads()
+    assert len(heads) == 1
     revision = script.get_revision("20260924_008")
     assert revision.down_revision == "20260329_007"
+    # Later migrations may become the head; this one must stay in its history.
+    history = [rev.revision for rev in script.iterate_revisions(heads[0], "base")]
+    assert "20260924_008" in history
