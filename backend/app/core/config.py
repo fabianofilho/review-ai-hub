@@ -12,6 +12,17 @@ from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 from pydantic import PostgresDsn
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
+# ENCRYPTION_KEY values that are published in this repository (code default,
+# docker-compose fallback and setup script placeholder). They must never be
+# used outside DEBUG because anyone can derive the encryption keys from them.
+KNOWN_INSECURE_ENCRYPTION_KEYS = frozenset(
+    {
+        "review_hub_default_key_change_me_in_production",
+        "review_hub_dev_key_change_in_prod",
+        "sua-chave-de-criptografia-32-caracteres",
+    }
+)
+
 
 class Settings(BaseSettings):
     """
@@ -103,6 +114,29 @@ class Settings(BaseSettings):
         """Retorna o ambiente do Supabase (local | production)."""
         value = (self.SUPABASE_ENV or "").strip().lower()
         return "local" if value == "local" else "production"
+
+    @property
+    def has_insecure_encryption_key(self) -> bool:
+        """True when ENCRYPTION_KEY is empty or one of the publicly known defaults."""
+        key = (self.ENCRYPTION_KEY or "").strip()
+        return not key or key in KNOWN_INSECURE_ENCRYPTION_KEYS
+
+
+def validate_encryption_key(config: Settings) -> None:
+    """
+    Refuse to run outside DEBUG with an empty or publicly known ENCRYPTION_KEY.
+
+    Raises:
+        RuntimeError: When DEBUG is off and the key is insecure.
+    """
+    if config.DEBUG or not config.has_insecure_encryption_key:
+        return
+    raise RuntimeError(
+        "ENCRYPTION_KEY is empty or uses a publicly known default value. "
+        "Set a unique secret, e.g. the output of "
+        "`python -c \"import secrets; print(secrets.token_urlsafe(32))\"`, "
+        "or set DEBUG=true for local development."
+    )
 
 
 @lru_cache

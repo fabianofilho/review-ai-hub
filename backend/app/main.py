@@ -23,7 +23,7 @@ from alembic.script import ScriptDirectory
 from alembic.config import Config as AlembicConfig
 
 from app.api.v1.router import api_router
-from app.core.config import settings
+from app.core.config import settings, validate_encryption_key
 from app.core.deps import AsyncSessionLocal
 from app.core.error_handler import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
@@ -68,6 +68,20 @@ def check_pending_migrations() -> None:
         raise SystemExit(1)
 
 
+def check_encryption_key() -> None:
+    """
+    Abort startup when ENCRYPTION_KEY is empty or a publicly known default.
+
+    Only enforced when DEBUG is off, so local development keeps working.
+    Exits with SystemExit(1), like check_pending_migrations().
+    """
+    try:
+        validate_encryption_key(settings)
+    except RuntimeError as exc:
+        logger.error("insecure_encryption_key", error=str(exc))
+        raise SystemExit(1) from exc
+
+
 @asynccontextmanager
 async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
@@ -78,6 +92,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     """
     # Startup
     configure_logging()
+    check_encryption_key()
     check_pending_migrations()
     logger.info(
         "application_startup",
