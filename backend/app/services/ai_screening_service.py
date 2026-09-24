@@ -249,7 +249,7 @@ Journal: {article.journal_title or "Not available"}
     async def _screen_full_text(
         self,
         article: Article,
-        project_id: UUID,
+        project_id: UUID,  # noqa: ARG002
         criteria_text: str,
         model: str,
     ) -> dict:

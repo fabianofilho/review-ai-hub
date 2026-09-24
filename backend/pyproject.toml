@@ -102,7 +102,17 @@ ignore = [
     "E501",   # line too long (handled by formatter)
     "B008",   # do not perform function calls in argument defaults
     "B904",   # raise without from inside except
+    "UP042",  # (str, Enum) -> StrEnum changes what str() and f-strings return for members
 ]
+
+[tool.ruff.lint.per-file-ignores]
+# Endpoints keep `request` for slowapi's @limiter.limit and declare the authenticated
+# user as a dependency even when the handler body does not read it.
+"app/api/**/*.py" = ["ARG001"]
+# Celery hooks and bound tasks have signatures fixed by Celery.
+"app/worker/**/*.py" = ["ARG001", "ARG002"]
+# Fixtures and patched callables are often requested only for their side effect.
+"tests/**/*.py" = ["ARG001", "ARG002"]
 
 [tool.ruff.lint.isort]
 known-first-party = ["app"]

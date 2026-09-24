@@ -156,7 +156,7 @@ async def zotero_action(
                     collection_key=payload.collection_key,
                 )
                 await db.commit()
-                task = import_zotero_collection_task.delay(
+                import_zotero_collection_task.delay(
                     project_id=str(project_id),
                     collection_key=payload.collection_key,
                     user_id=user.sub,

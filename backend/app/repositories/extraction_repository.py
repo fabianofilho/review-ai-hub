@@ -91,7 +91,7 @@ class GlobalTemplateRepository(BaseRepository[ExtractionTemplateGlobal]):
             Lista de templates ativos.
         """
         result = await self.db.execute(
-            select(ExtractionTemplateGlobal).where(ExtractionTemplateGlobal.is_active == True)
+            select(ExtractionTemplateGlobal).where(ExtractionTemplateGlobal.is_active.is_(True))
         )
         return list(result.scalars().all())
 

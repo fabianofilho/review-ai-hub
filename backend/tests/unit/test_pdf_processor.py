@@ -39,7 +39,7 @@ xref
 trailer << /Size 6 /Root 1 0 R >>
 startxref
 444
-%%EOF"""
+%%EOF"""  # noqa: W291 (xref entries are 20 bytes: the trailing space is part of the EOL)
 
 
 class TestPDFProcessor:
@@ -140,22 +140,22 @@ class TestSectionDetection:
         text = """
         Abstract
         This is the abstract.
-        
+
         Introduction
         This is the introduction.
-        
+
         Methods
         This describes the methods.
-        
+
         Results
         These are the results.
-        
+
         Discussion
         This is the discussion.
-        
+
         Conclusion
         This is the conclusion.
-        
+
         References
         1. Reference one.
         """
@@ -179,7 +179,7 @@ class TestSectionDetection:
         Introduction
         This is the introduction content.
         It has multiple lines.
-        
+
         Methods
         This is the methods section.
         """

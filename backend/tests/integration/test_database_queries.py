@@ -86,9 +86,9 @@ class TestAssessmentQueries:
         """Query de instrumentos com contagem de itens."""
         result = await db_session.execute(
             text("""
-                SELECT 
-                    ai.id, 
-                    ai.name, 
+                SELECT
+                    ai.id,
+                    ai.name,
                     ai.tool_type,
                     COUNT(ait.id) as item_count
                 FROM assessment_instruments ai
@@ -124,7 +124,7 @@ class TestExtractionQueries:
         """Query de templates com tipos de entidade."""
         result = await db_session.execute(
             text("""
-                SELECT 
+                SELECT
                     t.id,
                     t.name as template_name,
                     e.name as entity_name,
@@ -159,7 +159,7 @@ class TestComplexQueries:
         """Query de resumo de projeto com contagens."""
         result = await db_session.execute(
             text("""
-                SELECT 
+                SELECT
                     p.id,
                     p.name,
                     p.review_type,
@@ -180,7 +180,7 @@ class TestComplexQueries:
         """Query de status de avaliação por artigo."""
         result = await db_session.execute(
             text("""
-                SELECT 
+                SELECT
                     a.id,
                     a.title,
                     COUNT(DISTINCT ass.id) as assessment_count,

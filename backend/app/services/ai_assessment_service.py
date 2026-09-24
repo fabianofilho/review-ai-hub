@@ -677,7 +677,7 @@ class AIAssessmentService(LoggerMixin):
     def _build_system_prompt(
         self,
         item: Any,
-        project: dict[str, Any],
+        project: dict[str, Any],  # noqa: ARG002
     ) -> str:
         """
         Build system prompt customized per instrument.

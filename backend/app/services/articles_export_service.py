@@ -175,7 +175,7 @@ class ArticlesExportService(LoggerMixin):
         article_ids: list[UUID],
         formats: list[str],
         file_scope: str,
-        job_id: str | None = None,
+        job_id: str | None = None,  # noqa: ARG002
     ) -> tuple[bytes, str, str, list[dict]]:
         """
         Executa export síncrono: gera conteúdo (CSV/RIS/RDF e opcionalmente ZIP com arquivos).

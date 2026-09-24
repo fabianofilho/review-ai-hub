@@ -148,10 +148,6 @@ async def list_decisions(
     user: CurrentUser,
 ) -> ApiResponse:
     """List all screening decisions for a project/phase."""
-    from app.repositories.screening_repository import ScreeningDecisionRepository
-
-    repo = ScreeningDecisionRepository(db)
-
     from sqlalchemy import and_, select
 
     from app.models.screening import ScreeningDecision

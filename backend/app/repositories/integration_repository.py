@@ -43,7 +43,7 @@ class ZoteroIntegrationRepository(BaseRepository[ZoteroIntegration]):
         query = select(ZoteroIntegration).where(ZoteroIntegration.user_id == user_id)
 
         if active_only:
-            query = query.where(ZoteroIntegration.is_active == True)
+            query = query.where(ZoteroIntegration.is_active.is_(True))
 
         result = await self.db.execute(query)
         return result.scalar_one_or_none()

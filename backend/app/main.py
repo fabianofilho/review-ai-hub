@@ -66,7 +66,7 @@ def check_pending_migrations() -> None:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
     """
     Manages application lifecycle.
 

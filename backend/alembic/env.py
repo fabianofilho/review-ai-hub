@@ -235,10 +235,8 @@ def _suppress_autogenerate_noise(
             return False
         if getattr(op, "modify_server_default", False):
             return False
-        if getattr(op, "modify_name", None) is not None:
-            return False
         # Only modify_comment (and existing_* fields) should be non-None/False.
-        return True
+        return getattr(op, "modify_name", None) is None
 
     def _keep(op: Any) -> bool:
         """Return False for noise ops that should be suppressed."""
@@ -260,10 +258,7 @@ def _suppress_autogenerate_noise(
             return False
 
         # Remove column-comment-only AlterColumnOp.
-        if _is_comment_only_alter(op):
-            return False
-
-        return True
+        return not _is_comment_only_alter(op)
 
     # ---- Pass 3: filter, handling ModifyTableOps nesting ----
     total_before = 0

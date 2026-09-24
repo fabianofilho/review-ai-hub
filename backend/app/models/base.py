@@ -113,7 +113,7 @@ class PostgreSQLEnumType(TypeDecorator):
         # Fallback para outros bancos (ex: SQLite em testes)
         return dialect.type_descriptor(String())
 
-    def process_bind_param(self, value: Any, dialect: Any) -> str | None:
+    def process_bind_param(self, value: Any, dialect: Any) -> str | None:  # noqa: ARG002
         """Processa o valor antes de enviar ao banco."""
         if value is None:
             return None
@@ -122,7 +122,7 @@ class PostgreSQLEnumType(TypeDecorator):
             return value.value
         return str(value)
 
-    def process_result_value(self, value: Any, dialect: Any) -> str | None:
+    def process_result_value(self, value: Any, dialect: Any) -> str | None:  # noqa: ARG002
         """Processa o valor recebido do banco."""
         # Retorna como string para compatibilidade com Enum Python
         return value

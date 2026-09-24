@@ -356,7 +356,7 @@ If no models are found, return: {{"models": []}}
     async def _get_child_entity_types(
         self,
         parent_entity_type_id: str,
-        template_id: UUID,
+        template_id: UUID,  # noqa: ARG002
     ) -> list[Any]:
         """
         Fetch child entity types of a parent entity type.

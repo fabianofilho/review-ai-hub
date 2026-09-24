@@ -438,7 +438,7 @@ class ProjectAssessmentInstrumentService(LoggerMixin):
                     "mode": instrument.mode,
                     "targetMode": getattr(instrument, "target_mode", "per_article"),
                     "itemsCount": len(items),
-                    "domains": list(set(item.domain for item in items if item.domain)),
+                    "domains": list({item.domain for item in items if item.domain}),
                 }
             )
 

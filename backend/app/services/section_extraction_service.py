@@ -569,7 +569,7 @@ class SectionExtractionService(LoggerMixin):
 
     async def _get_child_entity_types(
         self,
-        template_id: UUID,
+        template_id: UUID,  # noqa: ARG002
         parent_instance_id: UUID,
         section_ids: list[UUID] | None = None,
     ) -> list[Any]:

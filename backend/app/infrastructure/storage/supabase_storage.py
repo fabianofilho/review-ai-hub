@@ -91,7 +91,7 @@ class SupabaseStorageAdapter(StorageAdapter, LoggerMixin):
             StorageError: On upload error.
         """
         try:
-            response = self.client.storage.from_(bucket).upload(
+            self.client.storage.from_(bucket).upload(
                 path,
                 data,
                 file_options={"content-type": content_type},

@@ -35,8 +35,8 @@ class TestDatabaseConnection:
         result = await db_session.execute(
             text("""
                 SELECT EXISTS (
-                    SELECT FROM information_schema.tables 
-                    WHERE table_schema = 'public' 
+                    SELECT FROM information_schema.tables
+                    WHERE table_schema = 'public'
                     AND table_name = 'profiles'
                 )
             """)
@@ -50,8 +50,8 @@ class TestDatabaseConnection:
         result = await db_session.execute(
             text("""
                 SELECT EXISTS (
-                    SELECT FROM information_schema.tables 
-                    WHERE table_schema = 'public' 
+                    SELECT FROM information_schema.tables
+                    WHERE table_schema = 'public'
                     AND table_name = 'projects'
                 )
             """)
@@ -65,8 +65,8 @@ class TestDatabaseConnection:
         result = await db_session.execute(
             text("""
                 SELECT EXISTS (
-                    SELECT FROM information_schema.tables 
-                    WHERE table_schema = 'public' 
+                    SELECT FROM information_schema.tables
+                    WHERE table_schema = 'public'
                     AND table_name = 'articles'
                 )
             """)
@@ -128,9 +128,9 @@ class TestDatabaseSchema:
         """Verifica colunas da tabela projects."""
         result = await db_session.execute(
             text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_schema = 'public' 
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
                 AND table_name = 'projects'
                 ORDER BY ordinal_position
             """)
@@ -146,9 +146,9 @@ class TestDatabaseSchema:
         """Verifica colunas da tabela articles."""
         result = await db_session.execute(
             text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_schema = 'public' 
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
                 AND table_name = 'articles'
                 ORDER BY ordinal_position
             """)
@@ -164,9 +164,9 @@ class TestDatabaseSchema:
         """Verifica colunas da tabela assessment_instruments."""
         result = await db_session.execute(
             text("""
-                SELECT column_name 
-                FROM information_schema.columns 
-                WHERE table_schema = 'public' 
+                SELECT column_name
+                FROM information_schema.columns
+                WHERE table_schema = 'public'
                 AND table_name = 'assessment_instruments'
                 ORDER BY ordinal_position
             """)
@@ -187,9 +187,9 @@ class TestDatabaseRLS:
         """Check if RLS is enabled on projects table."""
         result = await db_session.execute(
             text("""
-                SELECT relrowsecurity 
-                FROM pg_class 
-                WHERE relname = 'projects' 
+                SELECT relrowsecurity
+                FROM pg_class
+                WHERE relname = 'projects'
                 AND relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
             """)
         )
@@ -201,9 +201,9 @@ class TestDatabaseRLS:
         """Check if RLS is enabled on articles table."""
         result = await db_session.execute(
             text("""
-                SELECT relrowsecurity 
-                FROM pg_class 
-                WHERE relname = 'articles' 
+                SELECT relrowsecurity
+                FROM pg_class
+                WHERE relname = 'articles'
                 AND relnamespace = (SELECT oid FROM pg_namespace WHERE nspname = 'public')
             """)
         )
