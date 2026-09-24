@@ -9,11 +9,23 @@ Suporta leitura direta de PDF com fallback para File Search.
 
 import uuid
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import CurrentUser, DbSession, SupabaseClient
+from app.core.deps import (
+    CurrentUser,
+    DbSession,
+    SupabaseClient,
+    ensure_project_member,
+    require_project_member,
+)
+from app.core.error_handler import AuthorizationError
 from app.core.factories import create_storage_adapter
 from app.core.logging import get_logger
+from app.models.assessment import AIAssessmentRun
+from app.models.extraction import AISuggestion, ExtractionRun
+from app.models.screening import ScreeningRun
+from app.repositories.extraction_repository import AISuggestionRepository
 from app.services.api_key_service import APIKeyService
 from app.schemas.assessment import (
     AIAssessmentRequest,
@@ -31,6 +43,25 @@ from app.utils.rate_limiter import limiter
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+
+async def _ensure_suggestion_access(
+    db: AsyncSession,
+    suggestion: AISuggestion,
+    user_id: str,
+) -> None:
+    """Ensure the user is a member of the project that owns the suggestion's run."""
+    run: AIAssessmentRun | ExtractionRun | ScreeningRun | None = None
+    if suggestion.assessment_run_id is not None:
+        run = await db.get(AIAssessmentRun, suggestion.assessment_run_id)
+    elif suggestion.extraction_run_id is not None:
+        run = await db.get(ExtractionRun, suggestion.extraction_run_id)
+    elif suggestion.screening_run_id is not None:
+        run = await db.get(ScreeningRun, suggestion.screening_run_id)
+    if run is None:
+        # Without a run the owning project is unknown: deny by default.
+        raise AuthorizationError("User is not a member of this project.")
+    await ensure_project_member(db, run.project_id, user_id)
 
 
 @router.post(
@@ -69,7 +100,9 @@ async def ai_assessment(
         article_id=str(payload.article_id),
         assessment_item_id=str(payload.assessment_item_id),
     )
-    
+
+    await ensure_project_member(db, payload.project_id, user.sub)
+
     try:
         # Resolve user's stored API key (BYOK) with env var fallback
         api_key_service = APIKeyService(db=db, user_id=user.sub)
@@ -191,7 +224,9 @@ async def ai_assessment_batch(
         article_id=str(payload.article_id),
         items_count=len(payload.item_ids),
     )
-    
+
+    await ensure_project_member(db, payload.project_id, user.sub)
+
     try:
         # Resolve user's stored API key (BYOK) with env var fallback
         api_key_service = APIKeyService(db=db, user_id=user.sub)
@@ -256,6 +291,7 @@ async def ai_assessment_batch(
     response_model=ApiResponse,
     summary="Listar sugestões de AI pendentes",
     description="Lista sugestões de AI que aguardam revisão humana.",
+    dependencies=[Depends(require_project_member)],
 )
 @limiter.limit("30/minute")
 async def list_ai_suggestions(
@@ -389,8 +425,11 @@ async def review_ai_suggestion(
         action=payload.action,
     )
 
+    existing = await AISuggestionRepository(db).get_by_id(uuid.UUID(suggestion_id))
+    if existing is not None:
+        await _ensure_suggestion_access(db, existing, user.sub)
+
     try:
-        from app.repositories.extraction_repository import AISuggestionRepository
         from app.repositories.assessment_repository import AIAssessmentRepository
         from app.models.assessment import AIAssessment
 

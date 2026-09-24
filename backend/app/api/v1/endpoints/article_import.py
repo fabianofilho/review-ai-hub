@@ -10,7 +10,7 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File, Form, status
 
-from app.core.deps import CurrentUser, DbSession, SupabaseClient
+from app.core.deps import CurrentUser, DbSession, SupabaseClient, ensure_project_member
 from app.core.factories import create_storage_adapter
 from app.core.logging import get_logger
 from app.schemas.article_import import (
@@ -58,6 +58,8 @@ async def extract_pdf_metadata(
         project_id=project_id,
         storage_key=storage_key,
     )
+
+    await ensure_project_member(db, project_id, user.sub)
 
     try:
         # Resolve BYOK
@@ -143,6 +145,8 @@ async def pdf_create_article(
         storage_key=body.storage_key,
     )
 
+    await ensure_project_member(db, body.project_id, user.sub)
+
     try:
         storage = create_storage_adapter(supabase)
         service = ArticleImportService(db=db, storage=storage)
@@ -218,6 +222,8 @@ async def csv_import(
         project_id=project_id,
         filename=file.filename,
     )
+
+    await ensure_project_member(db, project_id, user.sub)
 
     try:
         # Read and decode CSV

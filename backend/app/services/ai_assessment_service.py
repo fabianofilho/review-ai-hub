@@ -38,6 +38,7 @@ from app.repositories import (
     ProjectAssessmentItemRepository,
     ProjectRepository,
 )
+from app.repositories.assessment_repository import ProjectAssessmentInstrumentRepository
 
 
 @dataclass
@@ -86,6 +87,7 @@ class AIAssessmentService(LoggerMixin):
         self._projects = ProjectRepository(db)
         self._assessment_items = AssessmentItemRepository(db)
         self._project_assessment_items = ProjectAssessmentItemRepository(db)
+        self._project_instruments = ProjectAssessmentInstrumentRepository(db)
         self._ai_assessments = AIAssessmentRepository(db)
 
         # NEW: Run tracking and config repositories
@@ -166,18 +168,22 @@ class AIAssessmentService(LoggerMixin):
             # === Continue with existing logic ===
             # 1. Fetch metadata via repositories (project items first, then global)
             item = await self._project_assessment_items.get_by_id(assessment_item_id)
-            if not item:
+            if item and not await self._is_project_item_in_project(item, project_id):
+                item = None  # items of other projects are treated as not found
+            elif not item:
                 item = await self._assessment_items.get_by_id(assessment_item_id)
             if not item:
                 raise ValueError(f"Assessment item not found: {assessment_item_id}")
 
             article = await self._articles.get_by_id(article_id)
-            if not article:
+            if not article or str(article.project_id) != str(project_id):
                 raise ValueError(f"Article not found: {article_id}")
 
             project_summary = await self._projects.get_summary(project_id)
 
             # 2. Discover storage_key if not provided
+            if pdf_storage_key:
+                await self._ensure_article_file_key(pdf_storage_key, article_id, project_id)
             storage_key = pdf_storage_key
             if not storage_key:
                 pdf_file = await self._article_files.get_latest_pdf(article_id)
@@ -371,7 +377,7 @@ class AIAssessmentService(LoggerMixin):
         try:
             # 1. Fetch article and file ONCE
             article = await self._articles.get_by_id(article_id)
-            if not article:
+            if not article or str(article.project_id) != str(project_id):
                 raise ValueError(f"Article {article_id} not found")
 
             article_file = await self._article_files.get_latest_pdf(article_id)
@@ -397,7 +403,9 @@ class AIAssessmentService(LoggerMixin):
             items_by_id = {}
             for item_id in item_ids:
                 item = await self._project_assessment_items.get_by_id(item_id)
-                if not item:
+                if item and not await self._is_project_item_in_project(item, project_id):
+                    item = None  # items of other projects are treated as not found
+                elif not item:
                     item = await self._assessment_items.get_by_id(item_id)
                 if item:
                     items_by_id[item_id] = item
@@ -625,6 +633,29 @@ class AIAssessmentService(LoggerMixin):
         
         return []
     
+    async def _is_project_item_in_project(self, item: Any, project_id: UUID) -> bool:
+        """Return True when a project-scoped assessment item belongs to project_id."""
+        instrument = await self._project_instruments.get_by_id(item.project_instrument_id)
+        return instrument is not None and str(instrument.project_id) == str(project_id)
+
+    async def _ensure_article_file_key(
+        self,
+        storage_key: str,
+        article_id: UUID,
+        project_id: UUID,
+    ) -> None:
+        """
+        Ensure a client-provided storage key is a file of this article and project.
+
+        Storage is read with the service role, so an unchecked key would let a
+        caller run the assessment over any PDF in the bucket.
+        """
+        files = await self._article_files.get_by_article(article_id)
+        if not any(
+            f.storage_key == storage_key and str(f.project_id) == str(project_id) for f in files
+        ):
+            raise ValueError("pdf_storage_key does not belong to this article")
+
     async def _prepare_pdf_file(
         self,
         pdf_file_id: str | None,

@@ -11,7 +11,7 @@ import uuid
 
 from fastapi import APIRouter, HTTPException, Request, status
 
-from app.core.deps import CurrentUser, DbSession, SupabaseClient
+from app.core.deps import CurrentUser, DbSession, SupabaseClient, ensure_project_member
 from app.core.factories import create_storage_adapter
 from app.core.logging import get_logger
 from app.schemas.common import ApiResponse
@@ -71,7 +71,9 @@ async def extract_section(
         extract_all_sections=payload.extract_all_sections,
         model=payload.model,
     )
-    
+
+    await ensure_project_member(db, payload.project_id, user.sub)
+
     try:
         # Cria storage adapter via factory
         storage = create_storage_adapter(supabase)

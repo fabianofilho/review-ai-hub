@@ -28,6 +28,7 @@ from app.models.extraction import (
 )
 from app.repositories import (
     ArticleFileRepository,
+    ArticleRepository,
     ExtractionEntityTypeRepository,
     ExtractionInstanceRepository,
     ExtractionRunRepository,
@@ -88,6 +89,7 @@ class ModelExtractionService(LoggerMixin):
         self.openai_service = OpenAIService(trace_id=trace_id, api_key=openai_api_key)
         
         # Repositories
+        self._articles = ArticleRepository(db)
         self._article_files = ArticleFileRepository(db)
         self._templates = ExtractionTemplateRepository(db)
         self._global_templates = GlobalTemplateRepository(db)
@@ -115,6 +117,9 @@ class ModelExtractionService(LoggerMixin):
             ModelExtractionResult with extraction_run_id, models and tokens.
         """
         start_time = time.time()
+
+        # The article (and so its PDF) must belong to the project.
+        await self._articles.ensure_in_project([article_id], project_id)
 
         # 1. Create extraction_run in DB
         run = await self._runs.create_run(

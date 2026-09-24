@@ -115,6 +115,31 @@ class ArticleRepository(BaseRepository[Article]):
         by_id = {a.id: a for a in rows}
         return [by_id[i] for i in ids if i in by_id]
 
+    async def ensure_in_project(
+        self,
+        article_ids: list[UUID] | list[str],
+        project_id: UUID | str,
+    ) -> None:
+        """
+        Ensure that every article exists and belongs to the project.
+
+        Raises:
+            ValueError: When any article is missing or belongs to another project.
+        """
+        ids = {UUID(str(aid)) for aid in article_ids}
+        if not ids:
+            return
+        project_uuid = UUID(str(project_id))
+        result = await self.db.execute(
+            select(Article.id).where(
+                Article.id.in_(ids),
+                Article.project_id == project_uuid,
+            )
+        )
+        missing = ids - set(result.scalars().all())
+        if missing:
+            raise ValueError(f"{len(missing)} article(s) not found in project {project_uuid}")
+
     async def get_by_zotero_item_key(
         self,
         project_id: UUID | str,
