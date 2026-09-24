@@ -14,7 +14,7 @@ from alembic.script import ScriptDirectory
 
 BACKEND_DIR = Path(__file__).resolve().parents[2]
 MIGRATION_PATH = (
-    BACKEND_DIR / "alembic" / "versions" / "20260924_008_enable_rls_screening_tables.py"
+    BACKEND_DIR / "alembic" / "versions" / "20260924_010_enable_rls_screening_tables.py"
 )
 SCREENING_TABLES = [
     "screening_configs",
@@ -25,7 +25,7 @@ SCREENING_TABLES = [
 
 
 def _load_migration():
-    spec = importlib.util.spec_from_file_location("migration_20260924_008", MIGRATION_PATH)
+    spec = importlib.util.spec_from_file_location("migration_20260924_010", MIGRATION_PATH)
     module = importlib.util.module_from_spec(spec)
     assert spec.loader is not None
     spec.loader.exec_module(module)
@@ -79,8 +79,8 @@ def test_migration_follows_screening_tables_on_the_single_head():
 
     heads = script.get_heads()
     assert len(heads) == 1
-    revision = script.get_revision("20260924_008")
-    assert revision.down_revision == "20260329_007"
+    revision = script.get_revision("20260924_010")
+    assert revision.down_revision == "20260924_009"
     # Later migrations may become the head; this one must stay in its history.
     history = [rev.revision for rev in script.iterate_revisions(heads[0], "base")]
-    assert "20260924_008" in history
+    assert "20260924_010" in history

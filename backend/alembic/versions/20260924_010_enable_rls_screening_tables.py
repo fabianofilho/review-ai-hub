@@ -1,7 +1,7 @@
 """enable row level security on screening tables
 
-Revision ID: 20260924_008
-Revises: 20260329_007
+Revision ID: 20260924_010
+Revises: 20260924_009
 Create Date: 2026-09-24
 
 The screening tables created in 20260329_007 were left without RLS. Because
@@ -14,8 +14,8 @@ project-scoped tables (is_project_member / is_project_manager).
 
 from alembic import op
 
-revision: str = "20260924_008"
-down_revision: str | None = "20260329_007"
+revision: str = "20260924_010"
+down_revision: str | None = "20260924_009"
 branch_labels = None
 depends_on = None
 
