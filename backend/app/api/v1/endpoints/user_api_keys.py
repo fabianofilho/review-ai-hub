@@ -5,6 +5,7 @@ Endpoints para gerenciar API keys de provedores externos (OpenAI, Anthropic, etc
 As keys são criptografadas via Fernet na aplicação (mesmo padrão de ZoteroIntegration).
 """
 
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
@@ -33,7 +34,7 @@ async def list_api_keys(
     db: DbSession,
     user: CurrentUser,
     active_only: bool = True,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Lista API keys do usuário autenticado.
 
@@ -106,7 +107,7 @@ async def create_api_key(
     db: DbSession,
     user: CurrentUser,
     request: CreateAPIKeyRequest,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Cria nova API key.
 
@@ -173,7 +174,7 @@ async def update_api_key(
     db: DbSession,
     user: CurrentUser,
     request: UpdateAPIKeyRequest,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Atualiza uma API key existente.
 
@@ -233,7 +234,7 @@ async def update_api_key(
     summary="Listar provedores suportados",
     description="Lista os provedores de IA suportados.",
 )
-async def list_providers() -> ApiResponse:
+async def list_providers() -> ApiResponse[Any]:
     """
     Lista os provedores de IA suportados.
 
@@ -280,7 +281,7 @@ async def delete_api_key(
     key_id: UUID,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Remove permanentemente uma API key.
 
@@ -334,7 +335,7 @@ async def validate_api_key(
     key_id: UUID,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Revalida uma API key existente.
 

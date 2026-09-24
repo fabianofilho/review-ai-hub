@@ -151,13 +151,14 @@ async def _decode_with_jwks(
             headers={"WWW-Authenticate": "Bearer"},
         )
 
-    return jwt.decode(
+    claims: dict[str, Any] = jwt.decode(
         token,
         rsa_key,
         algorithms=[alg],
         audience="authenticated",
         issuer=expected_issuer,
     )
+    return claims
 
 
 async def verify_supabase_jwt(

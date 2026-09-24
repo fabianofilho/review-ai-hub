@@ -8,6 +8,7 @@ Suporta extração individual ou em batch de todas as seções.
 """
 
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
 
@@ -41,7 +42,7 @@ async def extract_section(
     db: DbSession,
     user: CurrentUser,
     supabase: SupabaseClient,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Executa extração de seção(ões) de um template.
 
@@ -126,7 +127,7 @@ async def extract_section(
             ).model_dump(by_alias=True)
         else:
             # Extração de seção única
-            result = await service.extract_section(
+            section_result = await service.extract_section(
                 project_id=payload.project_id,
                 article_id=payload.article_id,
                 template_id=payload.template_id,
@@ -141,20 +142,20 @@ async def extract_section(
             logger.info(
                 "section_extraction_success",
                 trace_id=trace_id,
-                run_id=result.extraction_run_id,
-                suggestions_created=result.suggestions_created,
-                tokens_total=result.tokens_total,
+                run_id=section_result.extraction_run_id,
+                suggestions_created=section_result.suggestions_created,
+                tokens_total=section_result.tokens_total,
             )
 
             # Formatar resposta no formato camelCase para o frontend
             response_data = SingleSectionResult(
-                extraction_run_id=result.extraction_run_id,
-                entity_type_id=result.entity_type_id,
-                suggestions_created=result.suggestions_created,
-                tokens_prompt=result.tokens_prompt,
-                tokens_completion=result.tokens_completion,
-                tokens_total=result.tokens_total,
-                duration_ms=result.duration_ms,
+                extraction_run_id=section_result.extraction_run_id,
+                entity_type_id=section_result.entity_type_id,
+                suggestions_created=section_result.suggestions_created,
+                tokens_prompt=section_result.tokens_prompt,
+                tokens_completion=section_result.tokens_completion,
+                tokens_total=section_result.tokens_total,
+                duration_ms=section_result.duration_ms,
             ).model_dump(by_alias=True)
 
         return ApiResponse(ok=True, data=response_data, trace_id=trace_id)

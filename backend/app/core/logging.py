@@ -75,7 +75,7 @@ def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
     Returns:
         Logger estruturado.
     """
-    return structlog.get_logger(name)
+    return structlog.stdlib.get_logger(name)
 
 
 class LoggerMixin:

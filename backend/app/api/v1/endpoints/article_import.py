@@ -7,6 +7,7 @@ Endpoints for importing articles via PDF metadata extraction and CSV (Scopus) fi
 import csv
 import io
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, File, Form, HTTPException, Request, UploadFile, status
 
@@ -38,10 +39,11 @@ async def extract_pdf_metadata(
     project_id: str = Form(...),
     storage_key: str = Form(...),
     original_filename: str = Form(...),
-    db: DbSession = None,
-    user: CurrentUser = None,
-    supabase: SupabaseClient = None,
-) -> ApiResponse:
+    *,
+    db: DbSession,
+    user: CurrentUser,
+    supabase: SupabaseClient,
+) -> ApiResponse[Any]:
     """
     Extract article metadata from an already-uploaded PDF.
 
@@ -121,10 +123,10 @@ async def extract_pdf_metadata(
 async def pdf_create_article(
     request: Request,
     body: PDFCreateArticleRequest,
-    db: DbSession = None,
-    user: CurrentUser = None,
-    supabase: SupabaseClient = None,
-) -> ApiResponse:
+    db: DbSession,
+    user: CurrentUser,
+    supabase: SupabaseClient,
+) -> ApiResponse[Any]:
     """
     Create an article from reviewed AI-extracted PDF metadata.
 
@@ -198,10 +200,11 @@ async def csv_import(
     request: Request,
     project_id: str = Form(...),
     file: UploadFile = File(...),
-    db: DbSession = None,
-    user: CurrentUser = None,
-    supabase: SupabaseClient = None,
-) -> ApiResponse:
+    *,
+    db: DbSession,
+    user: CurrentUser,
+    supabase: SupabaseClient,
+) -> ApiResponse[Any]:
     """
     Import articles from a Scopus-format CSV file.
 

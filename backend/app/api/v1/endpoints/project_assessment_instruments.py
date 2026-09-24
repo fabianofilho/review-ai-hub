@@ -7,6 +7,7 @@ Allows cloning global instruments (PROBAST, ROBIS) or creating custom ones.
 
 import time
 import uuid
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, Request, status
@@ -42,7 +43,7 @@ async def list_global_instruments(
     request: Request,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     List available global instruments (PROBAST, ROBIS, etc.).
 
@@ -78,7 +79,7 @@ async def list_project_instruments(
     db: DbSession,
     user: CurrentUser,
     active_only: bool = True,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     List instruments for a project.
 
@@ -128,7 +129,7 @@ async def get_instrument(
     instrument_id: UUID,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Fetch instrument by ID with items.
     """
@@ -167,7 +168,7 @@ async def clone_global_instrument(
     payload: CloneInstrumentRequest,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Clone a global instrument (PROBAST, ROBIS) to a project.
 
@@ -235,7 +236,7 @@ async def create_instrument(
     payload: ProjectAssessmentInstrumentCreate,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Create a custom instrument.
 
@@ -280,7 +281,7 @@ async def update_instrument(
     payload: ProjectAssessmentInstrumentUpdate,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Atualiza um instrumento de projeto.
     """
@@ -319,7 +320,7 @@ async def delete_instrument(
     instrument_id: UUID,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Deleta um instrumento de projeto.
 
@@ -364,7 +365,7 @@ async def add_item(
     payload: ProjectAssessmentItemCreate,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Adiciona um novo item a um instrumento.
     """
@@ -398,7 +399,7 @@ async def update_item(
     payload: ProjectAssessmentItemUpdate,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Atualiza um item de instrumento.
     """
@@ -437,7 +438,7 @@ async def delete_item(
     item_id: UUID,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Deleta um item de instrumento.
     """

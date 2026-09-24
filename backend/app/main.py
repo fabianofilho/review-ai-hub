@@ -120,7 +120,9 @@ def create_app() -> FastAPI:
 
     # Rate Limiter
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    # Starlette types exception handlers as taking a bare Exception, so a handler
+    # narrowed to RateLimitExceeded is rejected although it is only called for it.
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
     # Register custom exception handlers
     register_exception_handlers(app)

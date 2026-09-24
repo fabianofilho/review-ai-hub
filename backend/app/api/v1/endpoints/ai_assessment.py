@@ -8,6 +8,7 @@ Suporta leitura direta de PDF com fallback para File Search.
 """
 
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
 
@@ -46,7 +47,7 @@ async def ai_assessment(
     db: DbSession,
     user: CurrentUser,
     supabase: SupabaseClient,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Executa avaliação AI de um item de assessment.
 
@@ -168,7 +169,7 @@ async def ai_assessment_batch(
     db: DbSession,
     user: CurrentUser,
     supabase: SupabaseClient,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Executa avaliação AI em batch para múltiplos itens.
 
@@ -265,9 +266,10 @@ async def list_ai_suggestions(
     instrument_id: str | None = None,
     extraction_instance_id: str | None = None,
     status_filter: str | None = None,
-    db: DbSession = None,
-    user: CurrentUser = None,
-) -> ApiResponse:
+    *,
+    db: DbSession,
+    user: CurrentUser,
+) -> ApiResponse[Any]:
     """
     Lista sugestões de AI pendentes de revisão.
 
@@ -361,7 +363,7 @@ async def review_ai_suggestion(
     payload: ReviewAISuggestionRequest,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Revisa uma sugestão de AI (accept/reject/modify).
 

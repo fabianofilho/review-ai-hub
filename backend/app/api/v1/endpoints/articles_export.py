@@ -60,7 +60,7 @@ async def start_export(
     db: DbSession,
     user: CurrentUser,
     supabase: SupabaseClient,
-) -> Response | ApiResponse[ExportStartedResponse]:
+) -> Response | ApiResponse[ExportStartedResponse] | ApiResponse[None]:
     """Inicia exportação. Metadados-only e poucos artigos → 200 com arquivo; caso contrário → 202 com job_id."""
     trace_id = str(uuid.uuid4())
     project_id = payload.project_id
@@ -181,7 +181,7 @@ async def get_export_status(
     request: Request,
     job_id: str,
     user: CurrentUser,
-) -> ApiResponse[ExportStatusResponse]:
+) -> ApiResponse[ExportStatusResponse] | ApiResponse[None]:
     """Retorna status do job; quando completed, inclui downloadUrl e expiresAt."""
     from celery.result import AsyncResult
 
