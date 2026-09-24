@@ -24,32 +24,6 @@ class ProjectRepository(BaseRepository[Project]):
     def __init__(self, db: AsyncSession):
         super().__init__(db, Project)
 
-    async def get_by_org(
-        self,
-        org_id: UUID | str,
-        *,
-        skip: int = 0,
-        limit: int = 100,
-    ) -> list[Project]:
-        """
-        Lista projetos de uma organização.
-
-        Args:
-            org_id: ID da organização.
-            skip: Offset para paginação.
-            limit: Limite de resultados.
-
-        Returns:
-            Lista de projetos.
-        """
-        if isinstance(org_id, str):
-            org_id = UUID(org_id)
-
-        result = await self.db.execute(
-            select(Project).where(Project.org_id == org_id).offset(skip).limit(limit)
-        )
-        return list(result.scalars().all())
-
     async def get_by_user(
         self,
         user_id: UUID | str,

@@ -90,8 +90,10 @@ class GlobalTemplateRepository(BaseRepository[ExtractionTemplateGlobal]):
         Returns:
             Lista de templates ativos.
         """
+        # extraction_templates_global has no is_active column; the templates offered
+        # to projects are the ones flagged is_global (same filter as the frontend).
         result = await self.db.execute(
-            select(ExtractionTemplateGlobal).where(ExtractionTemplateGlobal.is_active.is_(True))
+            select(ExtractionTemplateGlobal).where(ExtractionTemplateGlobal.is_global.is_(True))
         )
         return list(result.scalars().all())
 

@@ -35,25 +35,6 @@ class AssessmentInstrumentRepository(BaseRepository[AssessmentInstrument]):
     def __init__(self, db: AsyncSession):
         super().__init__(db, AssessmentInstrument)
 
-    async def get_by_project(
-        self,
-        project_id: UUID | str,
-    ) -> list[AssessmentInstrument]:
-        """
-        List instruments for a project.
-        Args:
-            project_id: Project ID.
-        Returns:
-            List of instruments.
-        """
-        if isinstance(project_id, str):
-            project_id = UUID(project_id)
-
-        result = await self.db.execute(
-            select(AssessmentInstrument).where(AssessmentInstrument.project_id == project_id)
-        )
-        return list(result.scalars().all())
-
     async def get_with_items(
         self,
         instrument_id: UUID | str,

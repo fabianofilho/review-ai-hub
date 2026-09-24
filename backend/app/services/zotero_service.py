@@ -109,7 +109,8 @@ class ZoteroService(LoggerMixin):
         """Busca e descriptografa credenciais do usuário."""
         integration = await self._repo.get_by_user(self.user_id, active_only=True)
 
-        if not integration:
+        # encrypted_api_key is nullable: a row without a key has no usable credentials.
+        if not integration or integration.encrypted_api_key is None:
             raise ValueError("Credenciais não encontradas. Configure a integração primeiro.")
 
         api_key = self._decrypt(integration.encrypted_api_key)
