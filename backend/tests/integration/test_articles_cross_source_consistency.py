@@ -36,5 +36,9 @@ def test_cross_source_identity_is_stable() -> None:
         }
     )
 
-    assert zotero.canonical_identity["doi"] == ris.canonical_identity["doi"] == manual.canonical_identity["doi"]
+    assert (
+        zotero.canonical_identity["doi"]
+        == ris.canonical_identity["doi"]
+        == manual.canonical_identity["doi"]
+    )
     assert ris.canonical_identity["url_landing"] == manual.canonical_identity["url_landing"]

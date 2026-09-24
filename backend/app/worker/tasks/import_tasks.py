@@ -5,15 +5,18 @@ Tasks Celery para importação de dados externos.
 """
 
 import asyncio
-from typing import Any
+from collections.abc import Coroutine
+from typing import Any, TypeVar
 from uuid import UUID
 
-from app.worker.celery_app import celery_app
+from app.worker.celery_app import LoggedTask, bound_task
+
+_T = TypeVar("_T")
 
 _WORKER_LOOP: asyncio.AbstractEventLoop | None = None
 
 
-def _run_in_worker_loop(coro):
+def _run_in_worker_loop(coro: Coroutine[Any, Any, _T]) -> _T:
     global _WORKER_LOOP
     if _WORKER_LOOP is None or _WORKER_LOOP.is_closed():
         _WORKER_LOOP = asyncio.new_event_loop()
@@ -21,32 +24,31 @@ def _run_in_worker_loop(coro):
     return _WORKER_LOOP.run_until_complete(coro)
 
 
-@celery_app.task(
-    bind=True,
+@bound_task(
     max_retries=3,
     default_retry_delay=120,
     rate_limit="2/m",
 )
 def import_zotero_collection_task(
-    self,
+    self: LoggedTask,
     project_id: str,
     collection_key: str,
     user_id: str,
     import_pdfs: bool = True,
     max_items: int = 100,
-        update_existing: bool = True,
-        sync_run_id: str | None = None,
+    update_existing: bool = True,
+    sync_run_id: str | None = None,
 ) -> dict[str, Any]:
     """
     Task para importação de collection do Zotero.
-    
+
     Args:
         project_id: ID do projeto.
         collection_key: Key da collection no Zotero.
         user_id: ID do usuário.
         import_pdfs: Se deve importar PDFs.
         max_items: Máximo de items a importar.
-        
+
     Returns:
         Dict com resultado da importação.
     """
@@ -54,7 +56,7 @@ def import_zotero_collection_task(
     from app.core.factories import create_storage_adapter
     from app.services.zotero_import_service import ZoteroImportService
 
-    async def run():
+    async def run() -> dict[str, Any]:
         async with AsyncSessionLocal() as session:
             try:
                 supabase = get_supabase_client()
@@ -102,32 +104,31 @@ def import_zotero_collection_task(
             except Exception:
                 await session.rollback()
                 raise
-    
+
     try:
         return _run_in_worker_loop(run())
     except Exception as exc:
-        self.retry(exc=exc)
+        raise self.retry(exc=exc)
 
 
-@celery_app.task(
-    bind=True,
+@bound_task(
     max_retries=3,
     default_retry_delay=120,
     rate_limit="2/m",
 )
 def retry_failed_zotero_sync_task(
-        self,
-        project_id: str,
-        source_sync_run_id: str,
-        user_id: str,
-        sync_run_id: str,
-        limit: int = 100,
+    self: LoggedTask,
+    project_id: str,
+    source_sync_run_id: str,
+    user_id: str,
+    sync_run_id: str,
+    limit: int = 100,
 ) -> dict[str, Any]:
     from app.core.deps import AsyncSessionLocal, get_supabase_client
     from app.core.factories import create_storage_adapter
     from app.services.zotero_import_service import ZoteroImportService
 
-    async def run():
+    async def run() -> dict[str, Any]:
         async with AsyncSessionLocal() as session:
             try:
                 supabase = get_supabase_client()
@@ -161,50 +162,49 @@ def retry_failed_zotero_sync_task(
     try:
         return _run_in_worker_loop(run())
     except Exception as exc:
-        self.retry(exc=exc)
+        raise self.retry(exc=exc)
 
 
-@celery_app.task(
-    bind=True,
+@bound_task(
     max_retries=1,
     rate_limit="1/m",
 )
 def sync_zotero_library_task(
-    self,
+    self: LoggedTask,
     user_id: str,
 ) -> dict[str, Any]:
     """
     Task para sincronização completa da biblioteca Zotero.
-    
+
     Args:
         user_id: ID do usuário.
-        
+
     Returns:
         Dict com resultado da sincronização.
     """
     from app.core.deps import AsyncSessionLocal
     from app.services.zotero_service import ZoteroService
-    
-    async def run():
+
+    async def run() -> dict[str, Any]:
         async with AsyncSessionLocal() as session:
             try:
                 zotero = ZoteroService(
                     db=session,
                     user_id=user_id,
                 )
-                
+
                 # Testar conexão
                 connection_result = await zotero.test_connection()
-                
+
                 if not connection_result.get("success"):
                     return {
                         "success": False,
                         "error": connection_result.get("error"),
                     }
-                
+
                 # Listar collections
                 collections_result = await zotero.list_collections()
-                
+
                 return {
                     "success": True,
                     "user_name": connection_result.get("user_name"),
@@ -220,8 +220,8 @@ def sync_zotero_library_task(
             except Exception:
                 await session.rollback()
                 raise
-    
+
     try:
         return _run_in_worker_loop(run())
     except Exception as exc:
-        self.retry(exc=exc)
+        raise self.retry(exc=exc)

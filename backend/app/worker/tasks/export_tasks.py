@@ -5,14 +5,18 @@ Tasks Celery para exportação de artigos (CSV, RIS, RDF + arquivos).
 """
 
 import asyncio
+from collections.abc import Coroutine
+from typing import Any, TypeVar
 from uuid import UUID
 
-from app.worker.celery_app import celery_app
+from app.worker.celery_app import LoggedTask, bound_task
+
+_T = TypeVar("_T")
 
 _WORKER_LOOP: asyncio.AbstractEventLoop | None = None
 
 
-def _run_in_worker_loop(coro):
+def _run_in_worker_loop(coro: Coroutine[Any, Any, _T]) -> _T:
     global _WORKER_LOOP
     if _WORKER_LOOP is None or _WORKER_LOOP.is_closed():
         _WORKER_LOOP = asyncio.new_event_loop()
@@ -20,19 +24,18 @@ def _run_in_worker_loop(coro):
     return _WORKER_LOOP.run_until_complete(coro)
 
 
-@celery_app.task(
-    bind=True,
+@bound_task(
     max_retries=1,
     rate_limit="5/m",
 )
 def export_articles_task(
-        self,
-        project_id: str,
-        article_ids: list[str],
-        formats: list[str],
-        file_scope: str,
-        user_id: str,
-) -> dict:
+    self: LoggedTask,
+    project_id: str,
+    article_ids: list[str],
+    formats: list[str],
+    file_scope: str,
+    user_id: str,
+) -> dict[str, Any]:
     """
     Task para exportação de artigos em background.
 
@@ -53,7 +56,7 @@ def export_articles_task(
     from app.core.factories import create_storage_adapter
     from app.services.articles_export_service import ArticlesExportService
 
-    async def run() -> dict:
+    async def run() -> dict[str, Any]:
         async with AsyncSessionLocal() as session:
             supabase = get_supabase_client()
             storage = create_storage_adapter(supabase)

@@ -14,8 +14,9 @@ import logging
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlparse, urlunparse
 
-from alembic import context
 from sqlalchemy.ext.asyncio import async_engine_from_config
+
+from alembic import context
 
 # Import app settings and Base — sys.path is extended by `prepend_sys_path = .` in alembic.ini
 from app.core.config import settings
@@ -31,6 +32,7 @@ config = context.config
 # alembic.ini format template to be emitted literally to stderr.
 
 logger = logging.getLogger("alembic.env")
+
 
 # ---------------------------------------------------------------------------
 # Override database URL from app settings (never use the placeholder in .ini)
@@ -90,11 +92,11 @@ _SQL_ONLY_CONSTRAINTS: frozenset[str] = frozenset(
 
 
 def include_object(
-        object: object,  # noqa: A002
-        name: str | None,
-        type_: str,
-        reflected: bool,  # noqa: FBT001
-        compare_to: object,
+    object: object,  # noqa: A002
+    name: str | None,
+    type_: str,
+    reflected: bool,  # noqa: FBT001
+    compare_to: object,
 ) -> bool:
     """
     Restrict Alembic autogenerate to the public schema only.
@@ -151,9 +153,9 @@ def include_object(
 # process_revision_directives: suppress schema-noise from autogenerate
 # ---------------------------------------------------------------------------
 def _suppress_autogenerate_noise(
-        context: Any,  # noqa: ARG001
-        revision: Any,  # noqa: ARG001
-        directives: list[Any],
+    context: Any,  # noqa: ARG001
+    revision: Any,  # noqa: ARG001
+    directives: list[Any],
 ) -> None:
     """Remove spurious no-op changes from autogenerate output.
 
@@ -233,10 +235,8 @@ def _suppress_autogenerate_noise(
             return False
         if getattr(op, "modify_server_default", False):
             return False
-        if getattr(op, "modify_name", None) is not None:
-            return False
         # Only modify_comment (and existing_* fields) should be non-None/False.
-        return True
+        return getattr(op, "modify_name", None) is None
 
     def _keep(op: Any) -> bool:
         """Return False for noise ops that should be suppressed."""
@@ -258,10 +258,7 @@ def _suppress_autogenerate_noise(
             return False
 
         # Remove column-comment-only AlterColumnOp.
-        if _is_comment_only_alter(op):
-            return False
-
-        return True
+        return not _is_comment_only_alter(op)
 
     # ---- Pass 3: filter, handling ModifyTableOps nesting ----
     total_before = 0

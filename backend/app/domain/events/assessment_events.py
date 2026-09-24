@@ -15,13 +15,13 @@ from app.domain.events.base import DomainEvent
 class ArticleAssessed(DomainEvent):
     """
     Evento disparado quando um artigo é avaliado pela AI.
-    
+
     Usado para:
     - Atualizar contadores de progresso
     - Notificar usuários
     - Disparar workflows automáticos
     """
-    
+
     article_id: UUID = field(default_factory=lambda: UUID(int=0))
     assessment_id: UUID = field(default_factory=lambda: UUID(int=0))
     project_id: UUID = field(default_factory=lambda: UUID(int=0))
@@ -30,11 +30,11 @@ class ArticleAssessed(DomainEvent):
     confidence_score: float = 0.0
     processing_time_ms: int = 0
     ai_model: str = "gpt-4o-mini"
-    
+
     @property
     def event_name(self) -> str:
         return "article.assessed"
-    
+
     def _payload(self) -> dict[str, Any]:
         return {
             "article_id": str(self.article_id),
@@ -52,24 +52,24 @@ class ArticleAssessed(DomainEvent):
 class AssessmentApproved(DomainEvent):
     """
     Evento disparado quando um assessment AI é aprovado por um revisor.
-    
+
     Usado para:
     - Marcar artigo como avaliado
     - Atualizar estatísticas
     - Notificar equipe
     """
-    
+
     assessment_id: UUID = field(default_factory=lambda: UUID(int=0))
     article_id: UUID = field(default_factory=lambda: UUID(int=0))
     project_id: UUID = field(default_factory=lambda: UUID(int=0))
     reviewer_id: UUID = field(default_factory=lambda: UUID(int=0))
     final_level: str = ""
     modifications_made: bool = False
-    
+
     @property
     def event_name(self) -> str:
         return "assessment.approved"
-    
+
     def _payload(self) -> dict[str, Any]:
         return {
             "assessment_id": str(self.assessment_id),
@@ -85,23 +85,23 @@ class AssessmentApproved(DomainEvent):
 class AssessmentRejected(DomainEvent):
     """
     Evento disparado quando um assessment AI é rejeitado.
-    
+
     Usado para:
     - Re-agendar avaliação
     - Notificar AI team
     - Coletar feedback
     """
-    
+
     assessment_id: UUID = field(default_factory=lambda: UUID(int=0))
     article_id: UUID = field(default_factory=lambda: UUID(int=0))
     project_id: UUID = field(default_factory=lambda: UUID(int=0))
     reviewer_id: UUID = field(default_factory=lambda: UUID(int=0))
     rejection_reason: str = ""
-    
+
     @property
     def event_name(self) -> str:
         return "assessment.rejected"
-    
+
     def _payload(self) -> dict[str, Any]:
         return {
             "assessment_id": str(self.assessment_id),

@@ -8,6 +8,7 @@ Identifica e cria instâncias de modelos com suas hierarquias completas.
 """
 
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
 
@@ -37,7 +38,7 @@ async def extract_models(
     db: DbSession,
     user: CurrentUser,
     supabase: SupabaseClient,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Run prediction model extraction for an article.
 

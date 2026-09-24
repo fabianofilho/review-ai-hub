@@ -93,6 +93,12 @@ from app.schemas.project import (
     TimingConfig,
     UpdateMemberRequest,
 )
+from app.schemas.user_api_key import (
+    APIKeyResponse,
+    CreateAPIKeyRequest,
+    CreateAPIKeyResponse,
+    UpdateAPIKeyRequest,
+)
 from app.schemas.zotero import (
     DownloadAttachmentRequest,
     DownloadAttachmentResponse,
@@ -112,12 +118,6 @@ from app.schemas.zotero import (
     ZoteroCreator,
     ZoteroItem,
     ZoteroItemData,
-)
-from app.schemas.user_api_key import (
-    APIKeyResponse,
-    CreateAPIKeyRequest,
-    CreateAPIKeyResponse,
-    UpdateAPIKeyRequest,
 )
 
 __all__ = [

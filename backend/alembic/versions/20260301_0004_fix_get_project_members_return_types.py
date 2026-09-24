@@ -9,12 +9,10 @@ auth.users.email is character varying(255). Cast SELECT columns to text
 so the function result type matches.
 """
 
-from typing import Union
-
 from alembic import op
 
 revision: str = "0004"
-down_revision: Union[str, None] = "0003"
+down_revision: str | None = "0003"
 branch_labels = None
 depends_on = None
 
@@ -50,7 +48,9 @@ def upgrade() -> None:
         $$
                LANGUAGE plpgsql SECURITY DEFINER;
                """)
-    op.execute("GRANT EXECUTE ON FUNCTION get_project_members(uuid) TO authenticated, service_role;")
+    op.execute(
+        "GRANT EXECUTE ON FUNCTION get_project_members(uuid) TO authenticated, service_role;"
+    )
 
 
 def downgrade() -> None:
@@ -87,4 +87,6 @@ def downgrade() -> None:
         $$
                LANGUAGE plpgsql SECURITY DEFINER;
                """)
-    op.execute("GRANT EXECUTE ON FUNCTION get_project_members(uuid) TO authenticated, service_role;")
+    op.execute(
+        "GRANT EXECUTE ON FUNCTION get_project_members(uuid) TO authenticated, service_role;"
+    )

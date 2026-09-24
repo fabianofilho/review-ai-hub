@@ -19,7 +19,6 @@ from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict, Field, computed_field
 
-
 # =================== BASE SCHEMAS (SHARED) ===================
 
 
@@ -226,7 +225,8 @@ class AISuggestionSchema(BaseModel):
     metadata_: dict[str, Any] = Field(default={}, alias="metadata")
     created_at: datetime = Field(..., alias="createdAt")
 
-    @computed_field(alias="assessmentItemId")  # type: ignore[misc]
+    # mypy rejects decorators stacked on @property; pydantic documents this ignore.
+    @computed_field(alias="assessmentItemId")  # type: ignore[prop-decorator]
     @property
     def effective_assessment_item_id(self) -> UUID:
         """Return whichever item ID is set (global or project-scoped)."""
@@ -525,7 +525,7 @@ class ProjectAssessmentInstrumentBase(BaseModel):
     target_mode: Literal["per_article", "per_model"] = Field(
         default="per_article",
         alias="targetMode",
-        description="Assessment target: per_article (whole article) or per_model (each extracted model)"
+        description="Assessment target: per_article (whole article) or per_model (each extracted model)",
     )
     is_active: bool = Field(default=True, alias="isActive")
     aggregation_rules: dict[str, Any] | None = Field(default=None, alias="aggregationRules")
@@ -607,7 +607,7 @@ class GlobalInstrumentSummary(BaseModel):
     target_mode: Literal["per_article", "per_model"] = Field(
         default="per_article",
         alias="targetMode",
-        description="Default assessment target for this instrument"
+        description="Default assessment target for this instrument",
     )
     items_count: int = Field(..., alias="itemsCount")
     domains: list[str]

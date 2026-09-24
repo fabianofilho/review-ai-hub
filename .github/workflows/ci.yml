@@ -96,15 +96,15 @@ jobs:
         run: bash ../scripts/validate_migration_boundaries.sh
         working-directory: backend
 
-      - name: Bootstrap auth schema stub (Supabase auth.users FK target)
+      - name: Bootstrap Supabase stub (roles, auth.*, storage.*)
+        run: psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f ../scripts/ci_supabase_stub.sql
+
+      - name: Apply Supabase migrations (they run before Alembic)
         run: |
-          psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 <<'SQL'
-          CREATE SCHEMA IF NOT EXISTS auth;
-          CREATE TABLE IF NOT EXISTS auth.users (
-            id UUID PRIMARY KEY,
-            email TEXT
-          );
-          SQL
+          for f in ../supabase/migrations/*.sql; do
+            echo "Applying ${f}"
+            psql "${DATABASE_URL}" -v ON_ERROR_STOP=1 -f "${f}"
+          done
 
       - name: Apply Alembic migrations
         run: uv run alembic upgrade head

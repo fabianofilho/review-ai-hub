@@ -28,9 +28,9 @@ from app.repositories.extraction_repository import (
 )
 from app.repositories.extraction_run_repository import ExtractionRunRepository
 from app.repositories.integration_repository import ZoteroIntegrationRepository
-from app.repositories.user_api_key_repository import UserAPIKeyRepository
 from app.repositories.project_repository import ProjectMemberRepository, ProjectRepository
 from app.repositories.unit_of_work import UnitOfWork
+from app.repositories.user_api_key_repository import UserAPIKeyRepository
 
 __all__ = [
     # Base

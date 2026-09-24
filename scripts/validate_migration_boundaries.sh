@@ -11,6 +11,11 @@
 #   - auth.role()                      — Supabase role check
 #   - SELECT ... FROM auth.users       — read-only reference in function body
 #   - is_project_member(id, auth.uid()) — using auth function as an argument
+#   - DROP POLICY IF EXISTS "..." ON storage.objects
+#                                      — the article file policies on storage.objects
+#                                        reference application tables, so they are
+#                                        created in Alembic (0001) and dropped before
+#                                        re-creation to keep the migration idempotent
 #
 # Patterns that are FORBIDDEN (Alembic managing Supabase-owned schemas):
 #   - CREATE TABLE auth.*
@@ -67,7 +72,7 @@ fi
 # Each exclusion pattern removes lines that are definitely not DDL violations.
 # ---------------------------------------------------------------------------
 VIOLATIONS=$(echo "${RAW_MATCHES}" | grep -vE \
-  "(REFERENCES (auth|storage)\.|auth\.uid\(\)|auth\.role\(\)|FROM (auth|storage)\.|JOIN (auth|storage)\.|# .*(auth|storage)\.)" \
+  "(REFERENCES (auth|storage)\.|auth\.uid\(\)|auth\.role\(\)|FROM (auth|storage)\.|JOIN (auth|storage)\.|# .*(auth|storage)\.|DROP POLICY IF EXISTS \"[^\"]+\" ON storage\.objects)" \
   || true)
 
 if [[ -z "${VIOLATIONS}" ]]; then

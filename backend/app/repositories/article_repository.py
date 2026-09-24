@@ -5,6 +5,7 @@ Gerencia acesso a dados de artigos e arquivos.
 """
 
 from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import func, select
@@ -215,7 +216,7 @@ class ArticleRepository(BaseRepository[Article]):
         self,
         *,
         project_id: UUID,
-        payload: dict,
+        payload: dict[str, Any],
         canonical_identity: dict[str, str | None],
     ) -> tuple[Article, bool]:
         existing = await self.get_by_canonical_identity(
@@ -361,7 +362,7 @@ class ArticleSyncEventRepository(BaseRepository[ArticleSyncEvent]):
         authority_rule_applied: str | None = None,
         error_code: str | None = None,
         error_message: str | None = None,
-        event_payload: dict | None = None,
+        event_payload: dict[str, Any] | None = None,
     ) -> ArticleSyncEvent:
         event = ArticleSyncEvent(
             project_id=project_id,

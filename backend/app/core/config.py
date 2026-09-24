@@ -146,7 +146,7 @@ def get_settings() -> Settings:
 
     Usa lru_cache para evitar re-parsing das variáveis de ambiente.
     """
-    return Settings()  # type: ignore[call-arg]
+    return Settings()
 
 
 settings = get_settings()

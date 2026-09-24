@@ -20,7 +20,7 @@ from app.core.config import settings
 def configure_logging() -> None:
     """
     Configura logging estruturado para a aplicação.
-    
+
     Em DEBUG: Logs coloridos e formatados para console.
     Em produção: Logs JSON para parsing automatizado.
     """
@@ -34,7 +34,7 @@ def configure_logging() -> None:
         structlog.processors.StackInfoRenderer(),
         structlog.processors.UnicodeDecoder(),
     ]
-    
+
     if settings.DEBUG:
         # Desenvolvimento: Logs coloridos
         processors: list[Processor] = [
@@ -48,7 +48,7 @@ def configure_logging() -> None:
             structlog.processors.format_exc_info,
             structlog.processors.JSONRenderer(),
         ]
-    
+
     structlog.configure(
         processors=processors,
         wrapper_class=structlog.stdlib.BoundLogger,
@@ -56,7 +56,7 @@ def configure_logging() -> None:
         logger_factory=structlog.stdlib.LoggerFactory(),
         cache_logger_on_first_use=True,
     )
-    
+
     # Configurar logging stdlib
     logging.basicConfig(
         format="%(message)s",
@@ -68,26 +68,26 @@ def configure_logging() -> None:
 def get_logger(name: str | None = None) -> structlog.stdlib.BoundLogger:
     """
     Retorna logger configurado.
-    
+
     Args:
         name: Nome do módulo/componente.
-        
+
     Returns:
         Logger estruturado.
     """
-    return structlog.get_logger(name)
+    return structlog.stdlib.get_logger(name)
 
 
 class LoggerMixin:
     """
     Mixin que adiciona logger a classes.
-    
+
     Exemplo:
         class MyService(LoggerMixin):
             def do_something(self):
                 self.logger.info("doing something", extra_data="value")
     """
-    
+
     @property
     def logger(self) -> structlog.stdlib.BoundLogger:
         """Logger com nome da classe."""
@@ -97,7 +97,7 @@ class LoggerMixin:
 def log_context(**kwargs: Any) -> None:
     """
     Adiciona contexto ao logger para a request atual.
-    
+
     Args:
         **kwargs: Chave-valor para adicionar ao contexto.
     """
@@ -107,4 +107,3 @@ def log_context(**kwargs: Any) -> None:
 def clear_log_context() -> None:
     """Limpa contexto de log da request atual."""
     structlog.contextvars.clear_contextvars()
-

@@ -408,8 +408,9 @@ class TestFullExtractionFlow:
                 template_id=template_id,
             )
 
-        assert result.run_id is not None
-        assert result.total_models >= 0
+        assert result.extraction_run_id == str(run_id)
+        assert result.total_models == 1
+        assert result.models_created[0]["instanceId"] == str(mock_instance.id)
 
     @pytest.mark.asyncio
     async def test_extract_no_models_found(self, service, mock_storage):

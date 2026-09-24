@@ -22,6 +22,7 @@ logger = structlog.get_logger()
 
 # =================== ASSESSMENT HANDLERS ===================
 
+
 @event_bus.subscribe(ArticleAssessed)
 async def on_article_assessed(event: ArticleAssessed) -> None:
     """
@@ -86,6 +87,7 @@ async def on_assessment_rejected(event: AssessmentRejected) -> None:
 
 # =================== EXTRACTION HANDLERS ===================
 
+
 @event_bus.subscribe(ExtractionCompleted)
 async def on_extraction_completed(event: ExtractionCompleted) -> None:
     """
@@ -143,7 +145,7 @@ async def on_suggestion_accepted(event: SuggestionAccepted) -> None:
         field_name=event.field_name,
         was_modified=event.was_modified,
     )
-    
+
     # TODO: Coletar para dataset de fine-tuning
     # TODO: Calculate modification rate per field
 

@@ -11,7 +11,7 @@ from httpx import AsyncClient
 
 class TestSectionExtractionEndpoints:
     """Integration tests for section extraction endpoints."""
-    
+
     @pytest.mark.asyncio
     async def test_section_extraction_validation_single_mode(
         self,
@@ -28,9 +28,9 @@ class TestSectionExtractionEndpoints:
                 # Falta entityTypeId
             },
         )
-        
+
         assert response.status_code in (400, 422)
-    
+
     @pytest.mark.asyncio
     async def test_section_extraction_validation_batch_mode(
         self,
@@ -48,9 +48,9 @@ class TestSectionExtractionEndpoints:
                 # Falta parentInstanceId
             },
         )
-        
+
         assert response.status_code in (400, 422)
-    
+
     @pytest.mark.asyncio
     async def test_section_extraction_valid_request(
         self,
@@ -58,14 +58,16 @@ class TestSectionExtractionEndpoints:
     ) -> None:
         """Test extraction with valid request."""
         from app.services.section_extraction_service import SectionExtractionResult
-        
+
+        extraction_run_id = str(uuid4())
+
         with patch(
             "app.api.v1.endpoints.section_extraction.SectionExtractionService"
         ) as mock_service_class:
             mock_service = mock_service_class.return_value
             mock_service.extract_section = AsyncMock(
                 return_value=SectionExtractionResult(
-                    run_id=str(uuid4()),
+                    extraction_run_id=extraction_run_id,
                     entity_type_id=str(uuid4()),
                     suggestions_created=5,
                     tokens_prompt=100,
@@ -74,7 +76,7 @@ class TestSectionExtractionEndpoints:
                     duration_ms=1500.0,
                 )
             )
-            
+
             response = await client.post(
                 "/api/v1/extraction/sections",
                 json={
@@ -84,11 +86,12 @@ class TestSectionExtractionEndpoints:
                     "entityTypeId": str(uuid4()),
                 },
             )
-            
+
             assert response.status_code == 200
             data = response.json()
             assert data.get("ok") is True
-    
+            assert data["data"]["extractionRunId"] == extraction_run_id
+
     @pytest.mark.asyncio
     async def test_section_extraction_batch_valid_request(
         self,
@@ -96,14 +99,16 @@ class TestSectionExtractionEndpoints:
     ) -> None:
         """Test batch extraction with valid request."""
         from app.services.section_extraction_service import BatchExtractionResult
-        
+
+        extraction_run_id = str(uuid4())
+
         with patch(
             "app.api.v1.endpoints.section_extraction.SectionExtractionService"
         ) as mock_service_class:
             mock_service = mock_service_class.return_value
             mock_service.extract_all_sections = AsyncMock(
                 return_value=BatchExtractionResult(
-                    run_id=str(uuid4()),
+                    extraction_run_id=extraction_run_id,
                     total_sections=10,
                     successful_sections=8,
                     failed_sections=2,
@@ -113,7 +118,7 @@ class TestSectionExtractionEndpoints:
                     sections=[],
                 )
             )
-            
+
             response = await client.post(
                 "/api/v1/extraction/sections",
                 json={
@@ -124,15 +129,16 @@ class TestSectionExtractionEndpoints:
                     "parentInstanceId": str(uuid4()),
                 },
             )
-            
+
             assert response.status_code == 200
             data = response.json()
             assert data.get("ok") is True
+            assert data["data"]["extractionRunId"] == extraction_run_id
 
 
 class TestModelExtractionEndpoints:
     """Integration tests for model extraction endpoints."""
-    
+
     @pytest.mark.asyncio
     async def test_model_extraction_validation(
         self,
@@ -144,9 +150,9 @@ class TestModelExtractionEndpoints:
             "/api/v1/extraction/models",
             json={},
         )
-        
+
         assert response.status_code in (400, 422)
-    
+
     @pytest.mark.asyncio
     async def test_model_extraction_valid_request(
         self,
@@ -154,14 +160,16 @@ class TestModelExtractionEndpoints:
     ) -> None:
         """Test model extraction with valid request."""
         from app.services.model_extraction_service import ModelExtractionResult
-        
+
+        extraction_run_id = str(uuid4())
+
         with patch(
             "app.api.v1.endpoints.model_extraction.ModelExtractionService"
         ) as mock_service_class:
             mock_service = mock_service_class.return_value
             mock_service.extract = AsyncMock(
                 return_value=ModelExtractionResult(
-                    run_id=str(uuid4()),
+                    extraction_run_id=extraction_run_id,
                     models_created=[],
                     total_models=0,
                     child_instances_created=0,
@@ -171,7 +179,7 @@ class TestModelExtractionEndpoints:
                     duration_ms=1500.0,
                 )
             )
-            
+
             response = await client.post(
                 "/api/v1/extraction/models",
                 json={
@@ -180,8 +188,8 @@ class TestModelExtractionEndpoints:
                     "templateId": str(uuid4()),
                 },
             )
-            
+
             assert response.status_code == 200
             data = response.json()
             assert data.get("ok") is True
-
+            assert data["data"]["extractionRunId"] == extraction_run_id

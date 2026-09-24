@@ -244,10 +244,10 @@ class ModelExtractionService(LoggerMixin):
             return template
 
         # If not found, try global template
-        template = await self._global_templates.get_by_id(template_id)
+        global_template = await self._global_templates.get_by_id(template_id)
 
-        if template:
-            return template
+        if global_template:
+            return global_template
 
         raise ValueError(f"Template not found: {template_id}")
 
@@ -361,7 +361,7 @@ If no models are found, return: {{"models": []}}
     async def _get_child_entity_types(
         self,
         parent_entity_type_id: str,
-        template_id: UUID,
+        template_id: UUID,  # noqa: ARG002
     ) -> list[Any]:
         """
         Fetch child entity types of a parent entity type.

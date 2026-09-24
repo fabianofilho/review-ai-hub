@@ -577,7 +577,7 @@ class SectionExtractionService(LoggerMixin):
 
     async def _get_child_entity_types(
         self,
-        template_id: UUID,
+        template_id: UUID,  # noqa: ARG002
         parent_instance_id: UUID,
         section_ids: list[UUID] | None = None,
     ) -> list[Any]:
@@ -944,7 +944,7 @@ Example response format:
             else:
                 suggested_value = {"value": value}
 
-            metadata_: dict = {
+            metadata_: dict[str, Any] = {
                 "field_name": field_name,
                 "extraction_trace_id": self.trace_id,
             }

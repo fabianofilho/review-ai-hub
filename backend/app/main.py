@@ -28,6 +28,7 @@ from app.core.error_handler import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.middleware import register_middlewares
 from app.core.security import get_jwks
+from app.models import Base  # noqa: F401  # Import all models so they are registered
 from app.utils.rate_limiter import limiter
 
 logger = get_logger(__name__)
@@ -79,7 +80,7 @@ def check_encryption_key() -> None:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
     """
     Manages application lifecycle.
 
@@ -134,7 +135,9 @@ def create_app() -> FastAPI:
 
     # Rate Limiter
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    # Starlette types exception handlers as taking a bare Exception, so a handler
+    # narrowed to RateLimitExceeded is rejected although it is only called for it.
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
     # Register custom exception handlers
     register_exception_handlers(app)

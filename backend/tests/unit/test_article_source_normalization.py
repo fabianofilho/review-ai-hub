@@ -43,7 +43,10 @@ def test_cross_source_lineage_does_not_change_identity_keys() -> None:
         }
     )
     assert ris.canonical_identity["doi"] == manual.canonical_identity["doi"] == "10.1000/xyz"
-    assert ris.canonical_identity["url_landing"] == manual.canonical_identity[
-        "url_landing"] == "https://example.org/paper"
+    assert (
+        ris.canonical_identity["url_landing"]
+        == manual.canonical_identity["url_landing"]
+        == "https://example.org/paper"
+    )
     assert ris.source_lineage == "ris"
     assert manual.source_lineage == "manual"

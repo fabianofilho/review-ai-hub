@@ -7,7 +7,7 @@ itens, respostas e avaliações por IA.
 
 from datetime import datetime
 from enum import Enum as PyEnum
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, Any
 from uuid import UUID
 
 from sqlalchemy import (
@@ -21,7 +21,8 @@ from sqlalchemy import (
     Text,
     func,
 )
-from sqlalchemy.dialects.postgresql import JSONB, UUID as PG_UUID
+from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy.dialects.postgresql import UUID as PG_UUID
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.models.base import Base, BaseModel, PostgreSQLEnumType, UUIDMixin
@@ -33,10 +34,10 @@ if TYPE_CHECKING:
 class AssessmentStatus(str, PyEnum):
     """
     Status da avaliação de qualidade.
-    
+
     Valores alinhados com o enum 'assessment_status' no PostgreSQL.
     """
-    
+
     IN_PROGRESS = "in_progress"
     SUBMITTED = "submitted"
     LOCKED = "locked"
@@ -60,22 +61,22 @@ class AssessmentInstrument(Base, UUIDMixin):
 
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    aggregation_rules: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    schema_: Mapped[dict | None] = mapped_column("schema", JSONB, nullable=True)
-    
+    aggregation_rules: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    schema_: Mapped[dict[str, Any] | None] = mapped_column("schema", JSONB, nullable=True)
+
     created_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True),
         server_default=func.now(),
         nullable=False,
     )
-    
+
     # Relationships
     items: Mapped[list["AssessmentItem"]] = relationship(
         "AssessmentItem",
         back_populates="instrument",
         cascade="all, delete-orphan",
     )
-    
+
     def __repr__(self) -> str:
         return f"<AssessmentInstrument {self.tool_type} {self.name}>"
 
@@ -101,8 +102,8 @@ class AssessmentItem(Base, UUIDMixin):
     sort_order: Mapped[int] = mapped_column(Integer, nullable=False)
     required: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
-    allowed_levels: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    allowed_levels_override: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    allowed_levels: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    allowed_levels_override: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
 
     # LLM prompt for AI assessment
     llm_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -143,33 +144,33 @@ class AIAssessmentConfig(BaseModel):
     """
     Configurações de IA para avaliação de qualidade por projeto.
     """
-    
+
     __tablename__ = "ai_assessment_configs"
-    
+
     project_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("public.projects.id", ondelete="CASCADE"),
         nullable=False,
     )
-    
+
     instrument_id: Mapped[UUID | None] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("public.assessment_instruments.id", ondelete="SET NULL"),
         nullable=True,
     )
-    
+
     model_name: Mapped[str] = mapped_column(
         String,
         default="google/gemini-2.5-flash",
         nullable=False,
     )
-    
+
     temperature: Mapped[float] = mapped_column(Numeric, default=0.3, nullable=False)
     max_tokens: Mapped[int] = mapped_column(Integer, default=2000, nullable=False)
-    
+
     system_instruction: Mapped[str | None] = mapped_column(Text, nullable=True)
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    
+
     def __repr__(self) -> str:
         return f"<AIAssessmentConfig project={self.project_id}>"
 
@@ -178,22 +179,22 @@ class AIAssessmentPrompt(BaseModel):
     """
     Prompts customizados para cada item de avaliação.
     """
-    
+
     __tablename__ = "ai_assessment_prompts"
-    
+
     assessment_item_id: Mapped[UUID] = mapped_column(
         PG_UUID(as_uuid=True),
         ForeignKey("public.assessment_items.id", ondelete="CASCADE"),
         unique=True,
         nullable=False,
     )
-    
+
     system_prompt: Mapped[str] = mapped_column(
         Text,
         default="You are an expert research quality assessor. Analyze the provided research article and answer the specific question based on the evidence found in the text.",
         nullable=False,
     )
-    
+
     user_prompt_template: Mapped[str] = mapped_column(
         Text,
         default="""Based on the article content, assess: {{question}}
@@ -203,13 +204,13 @@ Available response levels: {{levels}}
 Provide your assessment with clear justification and cite specific passages from the text that support your conclusion.""",
         nullable=False,
     )
-    
+
     # Relationships
     assessment_item: Mapped["AssessmentItem"] = relationship(
         "AssessmentItem",
         back_populates="prompt",
     )
-    
+
     def __repr__(self) -> str:
         return f"<AIAssessmentPrompt item={self.assessment_item_id}>"
 
@@ -269,8 +270,8 @@ class AIAssessmentRun(BaseModel):
     stage: Mapped[str] = mapped_column(String, nullable=False)
     status: Mapped[str] = mapped_column(String, default="pending", nullable=False)
 
-    parameters: Mapped[dict] = mapped_column(JSONB, default={}, nullable=False)
-    results: Mapped[dict] = mapped_column(JSONB, default={}, nullable=False)
+    parameters: Mapped[dict[str, Any]] = mapped_column(JSONB, default={}, nullable=False)
+    results: Mapped[dict[str, Any]] = mapped_column(JSONB, default={}, nullable=False)
     error_message: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     started_at: Mapped[datetime | None] = mapped_column(
@@ -349,7 +350,9 @@ class AIAssessment(BaseModel):
     selected_level: Mapped[str] = mapped_column(String, nullable=False)
     confidence_score: Mapped[float | None] = mapped_column(Numeric, nullable=True)
     justification: Mapped[str] = mapped_column(Text, nullable=False)
-    evidence_passages: Mapped[dict] = mapped_column(JSONB, default=[], nullable=False)
+    evidence_passages: Mapped[list[dict[str, Any]]] = mapped_column(
+        JSONB, default=[], nullable=False
+    )
 
     ai_model_used: Mapped[str] = mapped_column(String, nullable=False)
     processing_time_ms: Mapped[int | None] = mapped_column(Integer, nullable=True)
@@ -478,7 +481,7 @@ class AssessmentInstance(BaseModel):
 
     # Metadados flexíveis (overall_risk, applicability_concerns, etc.)
     # Renamed from 'metadata' to 'meta' to avoid SQLAlchemy reserved attribute
-    meta: Mapped[dict] = mapped_column("metadata", JSONB, default={}, nullable=False)
+    meta: Mapped[dict[str, Any]] = mapped_column("metadata", JSONB, default={}, nullable=False)
 
     # Relationships
     responses: Mapped[list["AssessmentResponse"]] = relationship(
@@ -630,7 +633,7 @@ class AssessmentEvidence(BaseModel):
     )
 
     page_number: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    position: Mapped[dict | None] = mapped_column(JSONB, default={}, nullable=True)
+    position: Mapped[dict[str, Any] | None] = mapped_column(JSONB, default={}, nullable=True)
     text_content: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     created_by: Mapped[UUID] = mapped_column(
@@ -694,8 +697,8 @@ class ProjectAssessmentInstrument(BaseModel):
 
     # Configuration
     is_active: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
-    aggregation_rules: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
-    schema_: Mapped[dict | None] = mapped_column("schema", JSONB, nullable=True)
+    aggregation_rules: Mapped[dict[str, Any] | None] = mapped_column(JSONB, nullable=True)
+    schema_: Mapped[dict[str, Any] | None] = mapped_column("schema", JSONB, nullable=True)
 
     # Audit
     created_by: Mapped[UUID] = mapped_column(
@@ -764,8 +767,8 @@ class ProjectAssessmentItem(BaseModel):
     required: Mapped[bool] = mapped_column(Boolean, default=True, nullable=False)
 
     # Response levels
-    allowed_levels: Mapped[dict] = mapped_column(JSONB, nullable=False)
-    allowed_levels_override: Mapped[dict | None] = mapped_column(JSONB, nullable=True)
+    allowed_levels: Mapped[list[str]] = mapped_column(JSONB, nullable=False)
+    allowed_levels_override: Mapped[list[str] | None] = mapped_column(JSONB, nullable=True)
 
     # AI configuration
     llm_prompt: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -782,4 +785,3 @@ class ProjectAssessmentItem(BaseModel):
 
     def __repr__(self) -> str:
         return f"<ProjectAssessmentItem {self.item_code} instrument={self.project_instrument_id}>"
-

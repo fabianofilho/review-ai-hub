@@ -13,7 +13,6 @@ These tests verify the migration was successful and everything works end-to-end.
 import pytest
 from sqlalchemy import text
 from sqlalchemy.ext.asyncio import AsyncSession
-from uuid import uuid4
 
 
 @pytest.mark.asyncio
@@ -62,19 +61,24 @@ class TestAssessmentTablesExist:
         assert row is not None
         assert row[0] == "assessment_evidence"
 
-    async def test_assessments_legacy_table_exists(self, db_session: AsyncSession) -> None:
-        """Verify legacy table was renamed."""
+    async def test_assessments_legacy_table_removed(self, db_session: AsyncSession) -> None:
+        """Verify the legacy assessments table is gone and only the VIEW remains.
+
+        Migration 0031 renamed the original table to assessments_legacy and the
+        cleanup migration 0032 dropped it, so "assessments" must now resolve to
+        the compatibility VIEW and never to a base table.
+        """
         result = await db_session.execute(
             text("""
-                SELECT table_name
+                SELECT table_name, table_type
                 FROM information_schema.tables
                 WHERE table_schema = 'public'
-                AND table_name = 'assessments_legacy'
+                AND table_name IN ('assessments', 'assessments_legacy')
             """)
         )
-        row = result.fetchone()
-        assert row is not None
-        assert row[0] == "assessments_legacy"
+        tables = {row[0]: row[1] for row in result.fetchall()}
+        assert "assessments_legacy" not in tables
+        assert tables.get("assessments") == "VIEW"
 
 
 @pytest.mark.asyncio
@@ -108,11 +112,33 @@ class TestAssessmentCompatibilityView:
         )
         columns = [row[0] for row in result.fetchall()]
 
-        # Should have old column names for compatibility
+        # Should expose every column of the original assessments table
+        # (supabase migration 0008_assessment) for compatibility
         expected_columns = [
-            "id", "project_id", "article_id", "user_id", "responses",
-            "overall_assessment", "notes", "status", "is_blind",
-            "can_see_others", "metadata", "created_at", "updated_at"
+            "id",
+            "project_id",
+            "article_id",
+            "user_id",
+            "tool_type",
+            "instrument_id",
+            "extraction_instance_id",
+            "responses",
+            "overall_assessment",
+            "confidence_level",
+            "status",
+            "completion_percentage",
+            "version",
+            "is_current_version",
+            "parent_assessment_id",
+            "is_blind",
+            "can_see_others",
+            "comments",
+            "private_notes",
+            "assessed_by_type",
+            "run_id",
+            "row_version",
+            "created_at",
+            "updated_at",
         ]
 
         for col in expected_columns:
@@ -120,9 +146,7 @@ class TestAssessmentCompatibilityView:
 
     async def test_view_can_be_queried(self, db_session: AsyncSession) -> None:
         """Verify VIEW can be queried like old table."""
-        result = await db_session.execute(
-            text("SELECT COUNT(*) FROM assessments")
-        )
+        result = await db_session.execute(text("SELECT COUNT(*) FROM assessments"))
         row = result.fetchone()
         assert row is not None
         assert row[0] >= 0
@@ -182,7 +206,7 @@ class TestAssessmentIndexes:
         expected_patterns = [
             "assessment_instances",  # At least primary key
             "assessment_responses",  # At least primary key
-            "assessment_evidence",   # At least primary key
+            "assessment_evidence",  # At least primary key
         ]
 
         for pattern in expected_patterns:
@@ -224,18 +248,24 @@ class TestAssessmentFunctions:
         assert row is not None
         assert row[0] == "calculate_assessment_instance_progress"
 
-    async def test_rollback_function_exists(self, db_session: AsyncSession) -> None:
-        """Verify rollback function exists."""
+    async def test_rollback_function_removed(self, db_session: AsyncSession) -> None:
+        """Verify the one-off restructure rollback helpers were dropped.
+
+        The cleanup migration 0032 removed rollback_assessment_restructure and
+        the legacy usage logger together with assessments_legacy; the schema is
+        now reverted through Alembic downgrades instead.
+        """
         result = await db_session.execute(
             text("""
                 SELECT proname
                 FROM pg_proc
-                WHERE proname = 'rollback_assessment_restructure'
+                WHERE proname IN (
+                    'rollback_assessment_restructure',
+                    'log_assessment_legacy_usage'
+                )
             """)
         )
-        row = result.fetchone()
-        assert row is not None
-        assert row[0] == "rollback_assessment_restructure"
+        assert result.fetchall() == []
 
 
 @pytest.mark.asyncio
@@ -340,27 +370,21 @@ class TestAssessmentWorkflow:
 
     async def test_can_count_instances(self, db_session: AsyncSession) -> None:
         """Test counting assessment instances."""
-        result = await db_session.execute(
-            text("SELECT COUNT(*) FROM assessment_instances")
-        )
+        result = await db_session.execute(text("SELECT COUNT(*) FROM assessment_instances"))
         row = result.fetchone()
         assert row is not None
         assert row[0] >= 0
 
     async def test_can_count_responses(self, db_session: AsyncSession) -> None:
         """Test counting assessment responses."""
-        result = await db_session.execute(
-            text("SELECT COUNT(*) FROM assessment_responses")
-        )
+        result = await db_session.execute(text("SELECT COUNT(*) FROM assessment_responses"))
         row = result.fetchone()
         assert row is not None
         assert row[0] >= 0
 
     async def test_can_count_evidence(self, db_session: AsyncSession) -> None:
         """Test counting assessment evidence."""
-        result = await db_session.execute(
-            text("SELECT COUNT(*) FROM assessment_evidence")
-        )
+        result = await db_session.execute(text("SELECT COUNT(*) FROM assessment_evidence"))
         row = result.fetchone()
         assert row is not None
         assert row[0] >= 0
@@ -438,31 +462,34 @@ class TestAssessmentMigrationStatus:
     """Test migration tracking."""
 
     async def test_migration_status_table_exists(self, db_session: AsyncSession) -> None:
-        """Verify migration status tracking table exists."""
+        """Verify migration status tracking table exists.
+
+        The cleanup migration 0032 replaced the single-purpose
+        assessment_migration_status table with the generic migration_status table.
+        """
         result = await db_session.execute(
             text("""
                 SELECT table_name
                 FROM information_schema.tables
                 WHERE table_schema = 'public'
-                AND table_name = 'assessment_migration_status'
+                AND table_name IN ('migration_status', 'assessment_migration_status')
             """)
         )
-        row = result.fetchone()
-        assert row is not None
-        assert row[0] == "assessment_migration_status"
+        tables = [row[0] for row in result.fetchall()]
+        assert tables == ["migration_status"]
 
     async def test_migration_marked_complete(self, db_session: AsyncSession) -> None:
-        """Verify migration is marked as completed."""
+        """Verify the assessment restructure cleanup is recorded as completed."""
         result = await db_session.execute(
             text("""
-                SELECT status, completed_at
-                FROM assessment_migration_status
-                WHERE id = 1
+                SELECT migration_name, executed_at
+                FROM migration_status
+                WHERE migration_name = '0032_cleanup_legacy_assessment'
             """)
         )
         row = result.fetchone()
         assert row is not None
-        assert row[0] == "completed"
+        assert row[0] == "0032_cleanup_legacy_assessment"
         assert row[1] is not None  # Should have completion timestamp
 
 
@@ -474,7 +501,7 @@ class TestAssessmentCheckConstraints:
         """Verify assessment_instances has check constraints."""
         result = await db_session.execute(
             text("""
-                SELECT conname
+                SELECT conname, pg_get_constraintdef(oid)
                 FROM pg_constraint
                 WHERE conrelid = (
                     SELECT oid FROM pg_class WHERE relname = 'assessment_instances'
@@ -482,11 +509,15 @@ class TestAssessmentCheckConstraints:
                 AND contype = 'c'
             """)
         )
-        constraints = [row[0] for row in result.fetchall()]
+        constraints = {row[0]: row[1] for row in result.fetchall()}
 
         # Should have constraint preventing extraction_instance_id on non-root
-        assert any("extraction" in c.lower() for c in constraints), \
+        assert any("extraction" in c.lower() for c in constraints), (
             "Missing extraction_instance_id constraint"
+        )
+        scope_check = constraints.get("chk_extraction_instance_scope", "")
+        assert "extraction_instance_id IS NULL" in scope_check
+        assert "parent_instance_id IS NULL" in scope_check
 
 
 @pytest.mark.asyncio

@@ -5,6 +5,7 @@ API endpoints for the article screening workflow.
 """
 
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, Depends, Request
 
@@ -55,7 +56,7 @@ async def upsert_config(
     payload: ScreeningConfigCreate,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """Create or update screening configuration for a project/phase."""
     trace_id = str(uuid.uuid4())
     await ensure_project_member(db, payload.project_id, user.sub)
@@ -92,7 +93,7 @@ async def get_config(
     phase: str,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """Get screening configuration for a project/phase."""
     from app.repositories.screening_repository import ScreeningConfigRepository
 
@@ -119,7 +120,7 @@ async def submit_decision(
     payload: ScreeningDecisionCreate,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """Submit a screening decision for an article."""
     trace_id = str(uuid.uuid4())
     await ensure_project_member(db, payload.project_id, user.sub)
@@ -157,12 +158,8 @@ async def list_decisions(
     phase: str,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """List all screening decisions for a project/phase."""
-    from app.repositories.screening_repository import ScreeningDecisionRepository
-
-    repo = ScreeningDecisionRepository(db)
-
     from sqlalchemy import and_, select
 
     from app.models.screening import ScreeningDecision
@@ -197,7 +194,7 @@ async def get_progress(
     phase: str,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """Get screening progress statistics."""
     service = ScreeningService(db=db, user_id=user.sub)
     progress = await service.get_progress(uuid.UUID(project_id), phase)
@@ -218,7 +215,7 @@ async def list_conflicts(
     phase: str,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """List all unresolved screening conflicts."""
     from app.repositories.screening_repository import ScreeningConflictRepository
 
@@ -243,7 +240,7 @@ async def resolve_conflict(
     payload: ResolveConflictRequest,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """Resolve a screening conflict."""
     trace_id = str(uuid.uuid4())
     existing = await ScreeningConflictRepository(db).get_by_id(conflict_id)
@@ -284,7 +281,7 @@ async def ai_screen(
     db: DbSession,
     user: CurrentUser,
     supabase: SupabaseClient,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """AI-screen a single article."""
     trace_id = str(uuid.uuid4())
     await ensure_project_member(db, payload.project_id, user.sub)
@@ -339,7 +336,7 @@ async def ai_screen_batch(
     db: DbSession,
     user: CurrentUser,
     supabase: SupabaseClient,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """AI-screen multiple articles."""
     trace_id = str(uuid.uuid4())
     await ensure_project_member(db, payload.project_id, user.sub)
@@ -389,7 +386,7 @@ async def get_prisma(
     project_id: str,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """Get PRISMA 2020 flow diagram counts."""
     service = ScreeningService(db=db, user_id=user.sub)
     prisma = await service.get_prisma_counts(uuid.UUID(project_id))
@@ -410,7 +407,7 @@ async def get_dashboard(
     phase: str,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """Get screening dashboard with progress and inter-rater metrics."""
     service = ScreeningService(db=db, user_id=user.sub)
     pid = uuid.UUID(project_id)
@@ -442,7 +439,7 @@ async def bulk_decide(
     payload: BulkDecideRequest,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """Bulk include/exclude multiple articles."""
     trace_id = str(uuid.uuid4())
     await ensure_project_member(db, payload.project_id, user.sub)
@@ -474,7 +471,7 @@ async def advance_to_fulltext(
     payload: AdvanceToFullTextRequest,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """Advance included articles from title/abstract to full-text screening."""
     trace_id = str(uuid.uuid4())
     await ensure_project_member(db, payload.project_id, user.sub)
