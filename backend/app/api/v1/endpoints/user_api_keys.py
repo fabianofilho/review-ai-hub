@@ -5,6 +5,7 @@ Endpoints para gerenciar API keys de provedores externos (OpenAI, Anthropic, etc
 As keys são criptografadas via Fernet na aplicação (mesmo padrão de ZoteroIntegration).
 """
 
+from typing import Any
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
@@ -33,10 +34,10 @@ async def list_api_keys(
     db: DbSession,
     user: CurrentUser,
     active_only: bool = True,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Lista API keys do usuário autenticado.
-    
+
     Retorna metadados das keys (provedor, status, etc.) sem expor as keys.
     """
     logger.info(
@@ -45,14 +46,14 @@ async def list_api_keys(
         user_email=user.email,
         active_only=active_only,
     )
-    
+
     service = APIKeyService(db=db, user_id=user.sub)
-    
+
     try:
         logger.debug("api_keys_list_calling_service", user_id=user.sub)
         keys = await service.list_keys(active_only=active_only)
         logger.debug("api_keys_list_service_returned", user_id=user.sub, count=len(keys))
-        
+
         result = [
             APIKeyResponse(
                 id=str(key.id),
@@ -62,22 +63,25 @@ async def list_api_keys(
                 is_default=key.is_default,
                 validation_status=key.validation_status,
                 last_used_at=key.last_used_at.isoformat() if key.last_used_at else None,
-                last_validated_at=key.last_validated_at.isoformat() if key.last_validated_at else None,
+                last_validated_at=key.last_validated_at.isoformat()
+                if key.last_validated_at
+                else None,
                 created_at=key.created_at.isoformat(),
             ).model_dump(by_alias=True)
             for key in keys
         ]
-        
+
         logger.info(
             "api_keys_listed",
             user_id=user.sub,
             count=len(result),
         )
-        
+
         return ApiResponse(ok=True, data={"keys": result})
-        
+
     except Exception as e:
         import traceback
+
         error_traceback = traceback.format_exc()
         logger.error(
             "api_keys_list_error",
@@ -103,15 +107,15 @@ async def create_api_key(
     db: DbSession,
     user: CurrentUser,
     request: CreateAPIKeyRequest,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Cria nova API key.
-    
+
     A key é criptografada automaticamente via Fernet.
     Opcionalmente valida a key antes de salvar.
     """
     service = APIKeyService(db=db, user_id=user.sub)
-    
+
     try:
         result = await service.save_key(
             provider=request.provider,
@@ -121,19 +125,19 @@ async def create_api_key(
             key_metadata=request.key_metadata,
             validate=request.validate_key,
         )
-        
+
         # Commit explícito para persistir a key
         await db.commit()
-        
+
         logger.info(
             "api_key_created",
             user_id=user.sub,
             provider=request.provider,
             key_id=result["id"],
         )
-        
+
         return ApiResponse(ok=True, data=result)
-        
+
     except ValueError as e:
         logger.warning(
             "api_key_create_validation_error",
@@ -170,14 +174,14 @@ async def update_api_key(
     db: DbSession,
     user: CurrentUser,
     request: UpdateAPIKeyRequest,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Atualiza uma API key existente.
-    
+
     Permite alterar is_default, is_active e key_name.
     """
     service = APIKeyService(db=db, user_id=user.sub)
-    
+
     try:
         # Se está marcando como default
         if request.is_default is True:
@@ -187,7 +191,7 @@ async def update_api_key(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="API key não encontrada",
                 )
-        
+
         # Se está desativando
         if request.is_active is False:
             success = await service.deactivate_key(key_id)
@@ -196,18 +200,18 @@ async def update_api_key(
                     status_code=status.HTTP_404_NOT_FOUND,
                     detail="API key não encontrada",
                 )
-        
+
         # Commit explícito para persistir alterações
         await db.commit()
-        
+
         logger.info(
             "api_key_updated",
             user_id=user.sub,
             key_id=str(key_id),
         )
-        
+
         return ApiResponse(ok=True, data={"id": str(key_id), "updated": True})
-        
+
     except HTTPException:
         raise
     except Exception as e:
@@ -230,7 +234,7 @@ async def update_api_key(
     summary="Listar provedores suportados",
     description="Lista os provedores de IA suportados.",
 )
-async def list_providers() -> ApiResponse:
+async def list_providers() -> ApiResponse[Any]:
     """
     Lista os provedores de IA suportados.
 
@@ -277,7 +281,7 @@ async def delete_api_key(
     key_id: UUID,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Remove permanentemente uma API key.
 
@@ -331,7 +335,7 @@ async def validate_api_key(
     key_id: UUID,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Revalida uma API key existente.
 

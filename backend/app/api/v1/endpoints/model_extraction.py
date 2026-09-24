@@ -8,6 +8,7 @@ Identifica e cria instâncias de modelos com suas hierarquias completas.
 """
 
 import uuid
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Request, status
 
@@ -37,7 +38,7 @@ async def extract_models(
     db: DbSession,
     user: CurrentUser,
     supabase: SupabaseClient,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """
     Run prediction model extraction for an article.
 
@@ -57,7 +58,7 @@ async def extract_models(
         ApiResponse with created models.
     """
     trace_id = str(uuid.uuid4())
-    
+
     logger.info(
         "model_extraction_request",
         trace_id=trace_id,
@@ -67,15 +68,15 @@ async def extract_models(
         template_id=str(payload.template_id),
         model=payload.model,
     )
-    
+
     try:
         # Create storage adapter via factory
         storage = create_storage_adapter(supabase)
-        
+
         # Buscar API key do usuário (BYOK) com fallback para global
         api_key_service = APIKeyService(db=db, user_id=user.sub)
         user_openai_key = await api_key_service.get_key_for_provider("openai")
-        
+
         service = ModelExtractionService(
             db=db,
             user_id=user.sub,
@@ -83,17 +84,17 @@ async def extract_models(
             trace_id=trace_id,
             openai_api_key=user_openai_key,
         )
-        
+
         result = await service.extract(
             project_id=payload.project_id,
             article_id=payload.article_id,
             template_id=payload.template_id,
             model=payload.model or "gpt-4o-mini",
         )
-        
+
         # Commit explícito para persistir as instâncias criadas
         await db.commit()
-        
+
         logger.info(
             "model_extraction_success",
             trace_id=trace_id,
@@ -118,9 +119,9 @@ async def extract_models(
                 "tokensTotal": result.tokens_total,
             },
         ).model_dump(by_alias=True)
-        
+
         return ApiResponse(ok=True, data=response_data, trace_id=trace_id)
-        
+
     except ValueError as e:
         await db.rollback()
         logger.warning(

@@ -4,10 +4,12 @@ Integration Repository.
 Gerencia acesso a dados de integrações externas.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any, cast
 from uuid import UUID
 
 from sqlalchemy import select, update
+from sqlalchemy.engine import CursorResult
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.models.integration import ZoteroIntegration
@@ -18,10 +20,10 @@ class ZoteroIntegrationRepository(BaseRepository[ZoteroIntegration]):
     """
     Repository para integrações Zotero.
     """
-    
+
     def __init__(self, db: AsyncSession):
         super().__init__(db, ZoteroIntegration)
-    
+
     async def get_by_user(
         self,
         user_id: UUID | str,
@@ -29,27 +31,25 @@ class ZoteroIntegrationRepository(BaseRepository[ZoteroIntegration]):
     ) -> ZoteroIntegration | None:
         """
         Busca integração Zotero de um usuário.
-        
+
         Args:
             user_id: ID do usuário.
             active_only: Se deve buscar apenas ativas.
-            
+
         Returns:
             Integração ou None.
         """
         if isinstance(user_id, str):
             user_id = UUID(user_id)
-        
-        query = select(ZoteroIntegration).where(
-            ZoteroIntegration.user_id == user_id
-        )
-        
+
+        query = select(ZoteroIntegration).where(ZoteroIntegration.user_id == user_id)
+
         if active_only:
-            query = query.where(ZoteroIntegration.is_active == True)
-        
+            query = query.where(ZoteroIntegration.is_active.is_(True))
+
         result = await self.db.execute(query)
         return result.scalar_one_or_none()
-    
+
     async def upsert(
         self,
         user_id: UUID | str,
@@ -59,22 +59,22 @@ class ZoteroIntegrationRepository(BaseRepository[ZoteroIntegration]):
     ) -> ZoteroIntegration:
         """
         Cria ou atualiza integração Zotero.
-        
+
         Args:
             user_id: ID do usuário.
             zotero_user_id: ID do usuário no Zotero.
             encrypted_api_key: API key criptografada.
             library_type: Tipo de biblioteca ('user' ou 'group').
-            
+
         Returns:
             Integração criada/atualizada.
         """
         if isinstance(user_id, str):
             user_id = UUID(user_id)
-        
+
         # Verificar se existe
         existing = await self.get_by_user(user_id, active_only=False)
-        
+
         if existing:
             # Atualizar
             existing.zotero_user_id = zotero_user_id
@@ -97,41 +97,42 @@ class ZoteroIntegrationRepository(BaseRepository[ZoteroIntegration]):
             await self.db.flush()
             await self.db.refresh(integration)
             return integration
-    
+
     async def update_last_sync(self, user_id: UUID | str) -> None:
         """
         Atualiza timestamp do último sync.
-        
+
         Args:
             user_id: ID do usuário.
         """
         if isinstance(user_id, str):
             user_id = UUID(user_id)
-        
+
         await self.db.execute(
             update(ZoteroIntegration)
             .where(ZoteroIntegration.user_id == user_id)
-            .values(last_sync_at=datetime.now(timezone.utc))
+            .values(last_sync_at=datetime.now(UTC))
         )
         await self.db.flush()
-    
+
     async def deactivate(self, user_id: UUID | str) -> bool:
         """
         Desativa integração de um usuário.
-        
+
         Args:
             user_id: ID do usuário.
-            
+
         Returns:
             True se desativada.
         """
         if isinstance(user_id, str):
             user_id = UUID(user_id)
-        
+
         result = await self.db.execute(
             update(ZoteroIntegration)
             .where(ZoteroIntegration.user_id == user_id)
             .values(is_active=False)
         )
         await self.db.flush()
-        return result.rowcount > 0
+        # Session.execute() is typed as Result; an UPDATE runs as a CursorResult.
+        return cast(CursorResult[Any], result).rowcount > 0

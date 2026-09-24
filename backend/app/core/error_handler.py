@@ -21,10 +21,10 @@ logger = get_logger(__name__)
 class AppError(Exception):
     """
     Exceção base da aplicação.
-    
+
     Todas as exceções customizadas devem herdar desta classe.
     """
-    
+
     def __init__(
         self,
         code: str,
@@ -41,7 +41,7 @@ class AppError(Exception):
 
 class NotFoundError(AppError):
     """Recurso não encontrado."""
-    
+
     def __init__(
         self,
         resource: str,
@@ -58,7 +58,7 @@ class NotFoundError(AppError):
 
 class ValidationError(AppError):
     """Erro de validação."""
-    
+
     def __init__(
         self,
         message: str,
@@ -75,7 +75,7 @@ class ValidationError(AppError):
 
 class AuthenticationError(AppError):
     """Erro de autenticação."""
-    
+
     def __init__(self, message: str = "Authentication required"):
         super().__init__(
             code="AUTHENTICATION_ERROR",
@@ -86,7 +86,7 @@ class AuthenticationError(AppError):
 
 class AuthorizationError(AppError):
     """Erro de autorização."""
-    
+
     def __init__(self, message: str = "Permission denied"):
         super().__init__(
             code="AUTHORIZATION_ERROR",
@@ -97,7 +97,7 @@ class AuthorizationError(AppError):
 
 class ConflictError(AppError):
     """Conflito de dados."""
-    
+
     def __init__(
         self,
         message: str,
@@ -113,7 +113,7 @@ class ConflictError(AppError):
 
 class RateLimitError(AppError):
     """Rate limit excedido."""
-    
+
     def __init__(
         self,
         message: str = "Rate limit exceeded",
@@ -129,7 +129,7 @@ class RateLimitError(AppError):
 
 class ExternalServiceError(AppError):
     """Erro em serviço externo (OpenAI, Zotero, etc)."""
-    
+
     def __init__(
         self,
         service: str,
@@ -146,7 +146,7 @@ class ExternalServiceError(AppError):
 
 class PDFProcessingError(AppError):
     """Erro no processamento de PDF."""
-    
+
     def __init__(
         self,
         message: str,
@@ -162,7 +162,7 @@ class PDFProcessingError(AppError):
 
 class AIExtractionError(AppError):
     """Erro na extração com IA."""
-    
+
     def __init__(
         self,
         message: str,
@@ -182,7 +182,7 @@ class AIExtractionError(AppError):
 
 class ErrorResponse(BaseModel):
     """Response padronizada de erro."""
-    
+
     ok: bool = False
     error: dict[str, Any]
     trace_id: str | None = None
@@ -194,7 +194,7 @@ class ErrorResponse(BaseModel):
 async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
     """Handler para exceções AppError."""
     trace_id = getattr(request.state, "trace_id", None)
-    
+
     logger.warning(
         "app_error",
         trace_id=trace_id,
@@ -203,7 +203,7 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
         status_code=exc.status_code,
         path=str(request.url.path),
     )
-    
+
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -221,7 +221,7 @@ async def app_error_handler(request: Request, exc: AppError) -> JSONResponse:
 async def http_exception_handler(request: Request, exc: HTTPException) -> JSONResponse:
     """Handler para HTTPException do FastAPI."""
     trace_id = getattr(request.state, "trace_id", None)
-    
+
     logger.warning(
         "http_exception",
         trace_id=trace_id,
@@ -229,7 +229,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
         detail=exc.detail,
         path=str(request.url.path),
     )
-    
+
     return JSONResponse(
         status_code=exc.status_code,
         content={
@@ -246,7 +246,7 @@ async def http_exception_handler(request: Request, exc: HTTPException) -> JSONRe
 async def generic_exception_handler(request: Request, exc: Exception) -> JSONResponse:
     """Handler para exceções não tratadas."""
     trace_id = getattr(request.state, "trace_id", None)
-    
+
     logger.error(
         "unhandled_exception",
         trace_id=trace_id,
@@ -255,7 +255,7 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
         path=str(request.url.path),
         exc_info=True,
     )
-    
+
     return JSONResponse(
         status_code=status.HTTP_500_INTERNAL_SERVER_ERROR,
         content={
@@ -272,11 +272,10 @@ async def generic_exception_handler(request: Request, exc: Exception) -> JSONRes
 def register_exception_handlers(app: Any) -> None:
     """
     Registra todos os exception handlers na aplicação.
-    
+
     Args:
         app: Instância do FastAPI.
     """
     app.add_exception_handler(AppError, app_error_handler)
     app.add_exception_handler(HTTPException, http_exception_handler)
     app.add_exception_handler(Exception, generic_exception_handler)
-

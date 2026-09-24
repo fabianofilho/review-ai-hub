@@ -6,8 +6,10 @@ For title/abstract phase: sends text. For full-text phase: sends PDF.
 """
 
 import json
+from typing import Any
 from uuid import UUID
 
+from sqlalchemy import and_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import LoggerMixin
@@ -19,9 +21,6 @@ from app.repositories.screening_repository import (
     ScreeningRunRepository,
 )
 from app.services.openai_service import OpenAIService
-
-from sqlalchemy import select, and_
-
 
 SCREENING_SYSTEM_PROMPT = """\
 You are a systematic review screening assistant. Your task is to evaluate whether \
@@ -122,12 +121,14 @@ class AIScreeningService(LoggerMixin):
         if phase == "title_abstract":
             result = await self._screen_title_abstract(article, criteria_text, model)
         else:
-            result = await self._screen_full_text(
-                article, project_id, criteria_text, model
-            )
+            result = await self._screen_full_text(article, project_id, criteria_text, model)
 
         # Parse result
-        data = json.loads(result["output_text"]) if isinstance(result.get("output_text"), str) else result.get("output_text", {})
+        data = (
+            json.loads(result["output_text"])
+            if isinstance(result.get("output_text"), str)
+            else result.get("output_text", {})
+        )
 
         # Create AI suggestion
         suggestion = AISuggestion(
@@ -155,7 +156,7 @@ class AIScreeningService(LoggerMixin):
         article_ids: list[UUID],
         phase: str,
         model: str = "gpt-4o-mini",
-    ) -> dict:
+    ) -> dict[str, Any]:
         """
         AI-screen a batch of articles.
 
@@ -179,9 +180,7 @@ class AIScreeningService(LoggerMixin):
 
         for article_id in article_ids:
             try:
-                suggestion = await self.screen_article(
-                    project_id, article_id, phase, model
-                )
+                suggestion = await self.screen_article(project_id, article_id, phase, model)
                 # Link suggestion to the run
                 suggestion.screening_run_id = run.id
                 await self.db.flush()
@@ -206,7 +205,7 @@ class AIScreeningService(LoggerMixin):
         await self.run_repo.complete_run(run.id, results)
         return results
 
-    def _build_criteria_prompt(self, criteria: list | dict) -> str:
+    def _build_criteria_prompt(self, criteria: list[Any] | dict[str, Any]) -> str:
         """Build a prompt section from screening criteria."""
         if not criteria:
             return "No specific criteria provided. Evaluate general relevance."
@@ -223,17 +222,17 @@ class AIScreeningService(LoggerMixin):
 
     async def _screen_title_abstract(
         self, article: Article, criteria_text: str, model: str
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Screen using title + abstract (chat completion)."""
         user_prompt = f"""Evaluate this article for inclusion in the systematic review.
 
-Title: {article.title or 'Not available'}
+Title: {article.title or "Not available"}
 
-Abstract: {article.abstract or 'Not available'}
+Abstract: {article.abstract or "Not available"}
 
-Authors: {', '.join(article.authors) if article.authors else 'Not available'}
-Year: {article.publication_year or 'Not available'}
-Journal: {article.journal_title or 'Not available'}
+Authors: {", ".join(article.authors) if article.authors else "Not available"}
+Year: {article.publication_year or "Not available"}
+Journal: {article.journal_title or "Not available"}
 
 {criteria_text}"""
 
@@ -251,10 +250,10 @@ Journal: {article.journal_title or 'Not available'}
     async def _screen_full_text(
         self,
         article: Article,
-        project_id: UUID,
+        project_id: UUID,  # noqa: ARG002
         criteria_text: str,
         model: str,
-    ) -> dict:
+    ) -> dict[str, Any]:
         """Screen using full PDF via Responses API."""
         # Find the main PDF
         result = await self.db.execute(

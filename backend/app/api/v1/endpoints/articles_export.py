@@ -55,12 +55,12 @@ def _is_queue_available() -> bool:
 )
 @limiter.limit("10/minute")
 async def start_export(
-        request: Request,
-        payload: ExportRequest,
-        db: DbSession,
-        user: CurrentUser,
-        supabase: SupabaseClient,
-) -> Response | ApiResponse[ExportStartedResponse]:
+    request: Request,
+    payload: ExportRequest,
+    db: DbSession,
+    user: CurrentUser,
+    supabase: SupabaseClient,
+) -> Response | ApiResponse[ExportStartedResponse] | ApiResponse[None]:
     """Inicia exportação. Metadados-only e poucos artigos → 200 com arquivo; caso contrário → 202 com job_id."""
     trace_id = str(uuid.uuid4())
     project_id = payload.project_id
@@ -178,10 +178,10 @@ async def start_export(
 )
 @limiter.limit("30/minute")
 async def get_export_status(
-        request: Request,
-        job_id: str,
-        user: CurrentUser,
-) -> ApiResponse[ExportStatusResponse]:
+    request: Request,
+    job_id: str,
+    user: CurrentUser,
+) -> ApiResponse[ExportStatusResponse] | ApiResponse[None]:
     """Retorna status do job; quando completed, inclui downloadUrl e expiresAt."""
     from celery.result import AsyncResult
 
@@ -228,7 +228,9 @@ async def get_export_status(
         if skipped:
             skipped_entries = [
                 SkippedFileEntry(
-                    article_id=UUID(s["articleId"]) if isinstance(s.get("articleId"), str) else s["articleId"],
+                    article_id=UUID(s["articleId"])
+                    if isinstance(s.get("articleId"), str)
+                    else s["articleId"],
                     storage_key=s["storageKey"],
                     reason=s["reason"],
                 )
@@ -270,9 +272,9 @@ async def get_export_status(
 )
 @limiter.limit("20/minute")
 async def cancel_export(
-        request: Request,
-        job_id: str,
-        user: CurrentUser,
+    request: Request,
+    job_id: str,
+    user: CurrentUser,
 ) -> ApiResponse[ExportCancelResponse]:
     """Revoga o job de exportação. Se já concluído, no-op."""
     from celery.result import AsyncResult

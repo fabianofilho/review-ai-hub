@@ -41,11 +41,11 @@ Exemplo com múltiplas operações:
         # Criar artigo
         article = Article(title="Novo", project_id=project_id)
         await uow.articles.create(article)
-        
+
         # Criar arquivo do artigo (usa article.id já disponível)
         file = ArticleFile(article_id=article.id, file_type="pdf")
         await uow.article_files.create(file)
-        
+
         # Commit de tudo de uma vez
         await uow.commit()
 
@@ -65,21 +65,26 @@ SEM USAR UoW (não recomendado):
     await session.commit()  # Você controla o commit
 """
 
+from types import TracebackType
 from typing import Self
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.repositories.article_repository import ArticleFileRepository, ArticleRepository
 from app.repositories.article_author_repository import (
     ArticleAuthorLinkRepository,
     ArticleAuthorRepository,
 )
-from app.repositories.article_repository import ArticleSyncEventRepository, ArticleSyncRunRepository
+from app.repositories.article_repository import (
+    ArticleFileRepository,
+    ArticleRepository,
+    ArticleSyncEventRepository,
+    ArticleSyncRunRepository,
+)
 from app.repositories.assessment_repository import (
     AIAssessmentRepository,
     AssessmentEvidenceRepository,
-    AssessmentInstrumentRepository,
     AssessmentInstanceRepository,
+    AssessmentInstrumentRepository,
     AssessmentItemRepository,
     AssessmentResponseRepository,
 )
@@ -97,10 +102,10 @@ from app.repositories.project_repository import ProjectMemberRepository, Project
 class UnitOfWork:
     """
     Unit of Work para coordenação de transações.
-    
+
     Agrupa repositories e controla commit/rollback.
     Deve SEMPRE ser usado com 'async with' para garantir cleanup.
-    
+
     Attributes:
         session: Sessão SQLAlchemy subjacente
         articles: Repository de artigos
@@ -110,14 +115,14 @@ class UnitOfWork:
         assessment_instances: Repository de assessment instances (nova estrutura)
         assessment_responses: Repository de assessment responses (nova estrutura)
         ... (outros repositories)
-    
+
     Example:
         # Uso básico
         async with UnitOfWork(session) as uow:
             article = await uow.articles.get_by_id(article_id)
             await uow.articles.update(article, {"title": "New Title"})
             await uow.commit()
-        
+
         # Múltiplas operações atômicas
         async with UnitOfWork(session) as uow:
             project = await uow.projects.create(Project(name="Novo"))
@@ -125,22 +130,22 @@ class UnitOfWork:
                 ProjectMember(project_id=project.id, user_id=user_id)
             )
             await uow.commit()  # Ambos são criados ou nenhum
-    
+
     Warning:
         NUNCA use repositories fora do contexto 'async with'.
         O rollback automático só funciona dentro do context manager.
     """
-    
+
     def __init__(self, session: AsyncSession):
         """
         Inicializa Unit of Work.
-        
+
         Args:
             session: Sessão async do SQLAlchemy.
         """
         self.session = session
         self._init_repositories()
-    
+
     def _init_repositories(self) -> None:
         """Inicializa todos os repositories."""
         # Articles
@@ -150,11 +155,11 @@ class UnitOfWork:
         self.article_author_links = ArticleAuthorLinkRepository(self.session)
         self.article_sync_runs = ArticleSyncRunRepository(self.session)
         self.article_sync_events = ArticleSyncEventRepository(self.session)
-        
+
         # Projects
         self.projects = ProjectRepository(self.session)
         self.project_members = ProjectMemberRepository(self.session)
-        
+
         # Assessments (new structure)
         self.assessment_instruments = AssessmentInstrumentRepository(self.session)
         self.assessment_items = AssessmentItemRepository(self.session)
@@ -162,82 +167,87 @@ class UnitOfWork:
         self.assessment_responses = AssessmentResponseRepository(self.session)
         self.assessment_evidence = AssessmentEvidenceRepository(self.session)
         self.ai_assessments = AIAssessmentRepository(self.session)
-        
+
         # Extractions
         self.extraction_templates = ExtractionTemplateRepository(self.session)
         self.global_templates = GlobalTemplateRepository(self.session)
         self.entity_types = ExtractionEntityTypeRepository(self.session)
         self.extraction_instances = ExtractionInstanceRepository(self.session)
         self.ai_suggestions = AISuggestionRepository(self.session)
-        
+
         # Integrations
         self.zotero_integrations = ZoteroIntegrationRepository(self.session)
-    
+
     async def commit(self) -> None:
         """
         Confirma transação atual.
-        
+
         IMPORTANTE: Sempre chame commit() explicitamente quando terminar
         as operações. Sem commit(), as mudanças NÃO são persistidas.
-        
+
         Example:
             async with UnitOfWork(session) as uow:
                 await uow.articles.create(article)
                 await uow.commit()  # OBRIGATÓRIO para persistir
         """
         await self.session.commit()
-    
+
     async def rollback(self) -> None:
         """
         Reverte transação atual.
-        
+
         Descarta todas as mudanças pendentes (flush mas não commit).
         Chamado automaticamente se exceção ocorrer no 'async with'.
-        
+
         Example:
             async with UnitOfWork(session) as uow:
                 await uow.articles.create(article)
                 await uow.rollback()  # Descarta a criação
         """
         await self.session.rollback()
-    
+
     async def flush(self) -> None:
         """
         Sincroniza mudanças pendentes com o banco.
-        
+
         Envia os comandos SQL para o banco, mas NÃO faz commit.
         Útil para obter IDs gerados ou forçar validação de constraints.
         Os repositories já fazem flush() automaticamente.
         """
         await self.session.flush()
-    
+
     async def refresh(self, obj: object) -> None:
         """
         Atualiza objeto com dados atuais do banco.
-        
+
         Útil para recarregar relacionamentos ou verificar mudanças
         feitas por triggers/defaults do banco.
-        
+
         Args:
             obj: Qualquer objeto de modelo SQLAlchemy
         """
         await self.session.refresh(obj)
-    
+
     async def __aenter__(self) -> Self:
         """
         Entra no contexto async.
-        
+
         Retorna self para uso com 'async with'.
         """
         return self
-    
-    async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
+
+    async def __aexit__(
+        self,
+        exc_type: type[BaseException] | None,
+        exc_val: BaseException | None,
+        exc_tb: TracebackType | None,
+    ) -> None:
         """
         Sai do contexto async.
-        
+
         IMPORTANTE: Faz rollback AUTOMÁTICO se exceção ocorrer.
         Isso garante que operações parciais não sejam commitadas.
-        
+
         Se não houver exceção e você esqueceu de chamar commit(),
         as mudanças serão perdidas (não commitadas).
         """

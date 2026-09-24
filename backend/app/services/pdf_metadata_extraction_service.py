@@ -10,7 +10,6 @@ from app.core.logging import LoggerMixin
 from app.schemas.article_import import ExtractedArticleMetadata, PDFMetadataExtractionResponse
 from app.services.openai_service import OpenAIService
 
-
 SYSTEM_PROMPT = """\
 You are a bibliographic metadata extraction assistant. Given a scientific article PDF, \
 extract the following metadata fields as accurately as possible. Only extract information \
@@ -77,10 +76,23 @@ METADATA_JSON_SCHEMA = {
                 "study_design": {"type": ["string", "null"]},
             },
             "required": [
-                "title", "abstract", "authors", "publication_year",
-                "publication_month", "journal_title", "journal_issn",
-                "volume", "issue", "pages", "doi", "pmid", "pmcid",
-                "keywords", "article_type", "language", "url_landing",
+                "title",
+                "abstract",
+                "authors",
+                "publication_year",
+                "publication_month",
+                "journal_title",
+                "journal_issn",
+                "volume",
+                "issue",
+                "pages",
+                "doi",
+                "pmid",
+                "pmcid",
+                "keywords",
+                "article_type",
+                "language",
+                "url_landing",
                 "study_design",
             ],
             "additionalProperties": False,

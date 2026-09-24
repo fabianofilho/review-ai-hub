@@ -24,7 +24,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from app.core.config import settings
 from app.core.logging import LoggerMixin
 from app.infrastructure.storage import StorageAdapter
-from app.models.assessment import AIAssessment
+from app.models.assessment import AssessmentItem, ProjectAssessmentItem
 from app.models.extraction import AISuggestion
 from app.repositories import (
     AIAssessmentConfigRepository,
@@ -43,7 +43,7 @@ from app.repositories import (
 @dataclass
 class AssessmentResult:
     """Result of an AI assessment."""
-    
+
     assessment_id: str
     selected_level: str
     confidence_score: float
@@ -65,7 +65,7 @@ class AIAssessmentService(LoggerMixin):
 
     # Size limit to use direct input_file (32MB)
     DIRECT_FILE_SIZE_LIMIT = 32 * 1024 * 1024
-    
+
     def __init__(
         self,
         db: AsyncSession,
@@ -93,7 +93,7 @@ class AIAssessmentService(LoggerMixin):
         self._configs = AIAssessmentConfigRepository(db)
         self._prompts = AIAssessmentPromptRepository(db)
         self._suggestions = AISuggestionRepository(db)
-    
+
     async def assess(
         self,
         project_id: UUID,
@@ -137,9 +137,9 @@ class AIAssessmentService(LoggerMixin):
         start_time = time.time()
 
         # Detect if instrument is project-scoped or global
-        is_project_instrument = await self._project_assessment_items.get_by_id(
-            assessment_item_id
-        ) is not None
+        is_project_instrument = (
+            await self._project_assessment_items.get_by_id(assessment_item_id) is not None
+        )
 
         # === PHASE 2: Run Tracking ===
         # 1. Create assessment run
@@ -162,6 +162,7 @@ class AIAssessmentService(LoggerMixin):
         # 2. Start run
         await self._runs.start_run(run.id)
 
+        item: ProjectAssessmentItem | AssessmentItem | None
         try:
             # === Continue with existing logic ===
             # 1. Fetch metadata via repositories (project items first, then global)
@@ -256,7 +257,9 @@ class AIAssessmentService(LoggerMixin):
                     "method_used": method_used,
                     "prompt_tokens": ai_result.get("input_tokens"),
                     "completion_tokens": ai_result.get("output_tokens"),
-                    "extraction_instance_id": str(extraction_instance_id) if extraction_instance_id else None,
+                    "extraction_instance_id": str(extraction_instance_id)
+                    if extraction_instance_id
+                    else None,
                 },
             )
 
@@ -272,7 +275,8 @@ class AIAssessmentService(LoggerMixin):
                     "selected_level": assessment_result.get("selected_level"),
                     "tokens_prompt": ai_result.get("input_tokens") or 0,
                     "tokens_completion": ai_result.get("output_tokens") or 0,
-                    "tokens_total": (ai_result.get("input_tokens") or 0) + (ai_result.get("output_tokens") or 0),
+                    "tokens_total": (ai_result.get("input_tokens") or 0)
+                    + (ai_result.get("output_tokens") or 0),
                     "ai_duration_ms": ai_duration,
                     "total_duration_ms": total_duration,
                     "method_used": method_used,
@@ -287,7 +291,8 @@ class AIAssessmentService(LoggerMixin):
                 method_used=method_used,
                 ai_duration_ms=ai_duration,
                 total_duration_ms=total_duration,
-                tokens_total=(ai_result.get("input_tokens") or 0) + (ai_result.get("output_tokens") or 0),
+                tokens_total=(ai_result.get("input_tokens") or 0)
+                + (ai_result.get("output_tokens") or 0),
             )
 
             return AssessmentResult(
@@ -315,7 +320,7 @@ class AIAssessmentService(LoggerMixin):
             )
 
             raise
-    
+
     async def assess_batch(
         self,
         project_id: UUID,
@@ -346,9 +351,9 @@ class AIAssessmentService(LoggerMixin):
         # Detect if instrument is project-scoped by checking first item
         is_project_instrument = False
         if item_ids:
-            is_project_instrument = await self._project_assessment_items.get_by_id(
-                item_ids[0]
-            ) is not None
+            is_project_instrument = (
+                await self._project_assessment_items.get_by_id(item_ids[0]) is not None
+            )
 
         # === PHASE 2: Create batch run ===
         run = await self._runs.create_run(
@@ -394,6 +399,7 @@ class AIAssessmentService(LoggerMixin):
             use_file_search = approx_size > 10 * 1024 * 1024  # > 10MB
 
             # 4. Fetch all items ONCE (project items first, then global)
+            item: ProjectAssessmentItem | AssessmentItem | None
             items_by_id = {}
             for item_id in item_ids:
                 item = await self._project_assessment_items.get_by_id(item_id)
@@ -455,7 +461,12 @@ class AIAssessmentService(LoggerMixin):
                                     },
                                 },
                             },
-                            "required": ["selected_level", "confidence_score", "justification", "evidence_passages"],
+                            "required": [
+                                "selected_level",
+                                "confidence_score",
+                                "justification",
+                                "evidence_passages",
+                            ],
                             "additionalProperties": False,
                         },
                     }
@@ -481,12 +492,14 @@ class AIAssessmentService(LoggerMixin):
                     assessment_result = json.loads(ai_result["output_text"])
 
                     # Update memory context with previous assessment
-                    memory_context.append({
-                        "item_code": item.item_code,
-                        "question": item.question,
-                        "selected_level": assessment_result.get("selected_level", ""),
-                        "justification": assessment_result.get("justification", ""),
-                    })
+                    memory_context.append(
+                        {
+                            "item_code": item.item_code,
+                            "question": item.question,
+                            "selected_level": assessment_result.get("selected_level", ""),
+                            "justification": assessment_result.get("justification", ""),
+                        }
+                    )
 
                     # Keep only last 3 assessments in memory (optimization)
                     if len(memory_context) > 3:
@@ -516,7 +529,9 @@ class AIAssessmentService(LoggerMixin):
                             "prompt_tokens": ai_result.get("input_tokens"),
                             "completion_tokens": ai_result.get("output_tokens"),
                             "batch_index": idx,
-                            "extraction_instance_id": str(extraction_instance_id) if extraction_instance_id else None,
+                            "extraction_instance_id": str(extraction_instance_id)
+                            if extraction_instance_id
+                            else None,
                         },
                     )
 
@@ -608,23 +623,24 @@ class AIAssessmentService(LoggerMixin):
             )
 
             raise
-    
+
     def _parse_allowed_levels(self, allowed_levels: Any) -> list[str]:
         """Parse allowed_levels de string ou lista."""
         if not allowed_levels:
             return []
-        
+
         if isinstance(allowed_levels, list):
             return allowed_levels
-        
+
         if isinstance(allowed_levels, str):
             try:
-                return json.loads(allowed_levels)
+                parsed: list[str] = json.loads(allowed_levels)
+                return parsed
             except Exception:
                 return []
-        
+
         return []
-    
+
     async def _prepare_pdf_file(
         self,
         pdf_file_id: str | None,
@@ -639,7 +655,7 @@ class AIAssessmentService(LoggerMixin):
         """
         if pdf_file_id:
             return {"type": "input_file", "file_id": pdf_file_id}, None
-        
+
         if pdf_base64:
             data_url = f"data:application/pdf;base64,{pdf_base64}"
             size = len(base64.b64decode(pdf_base64))
@@ -648,24 +664,24 @@ class AIAssessmentService(LoggerMixin):
                 "file_data": data_url,
                 "filename": pdf_filename or "article.pdf",
             }, size
-        
+
         if storage_key:
             # Download via Storage Adapter
             pdf_bytes = await self.storage.download("articles", storage_key)
             data_url = f"data:application/pdf;base64,{base64.b64encode(pdf_bytes).decode()}"
-            
+
             return {
                 "type": "input_file",
                 "file_data": data_url,
                 "filename": storage_key.split("/")[-1] or "article.pdf",
             }, len(pdf_bytes)
-        
+
         raise ValueError("No PDF source provided")
-    
+
     def _build_system_prompt(
         self,
         item: Any,
-        project: dict[str, Any],
+        project: dict[str, Any],  # noqa: ARG002
     ) -> str:
         """
         Build system prompt customized per instrument.
@@ -673,8 +689,8 @@ class AIAssessmentService(LoggerMixin):
         (PROBAST, QUADAS-2, ROB-2, etc.).
         """
         # Detectar instrumento pelo nome do item ou projeto
-        instrument_name = getattr(item, 'instrument_name', None) or ""
-        
+        instrument_name = getattr(item, "instrument_name", None) or ""
+
         base_prompt = (
             "You are an expert research quality assessor with deep knowledge of "
             "systematic review methodology and risk of bias assessment."
@@ -683,10 +699,10 @@ class AIAssessmentService(LoggerMixin):
         # Customize per instrument
         if "PROBAST" in instrument_name.upper():
             return f"{base_prompt} You are specifically trained in PROBAST (Prediction model Risk Of Bias Assessment Tool) for evaluating prediction model studies. Focus on model development, validation, and applicability."
-        
+
         if "QUADAS" in instrument_name.upper():
             return f"{base_prompt} You are specifically trained in QUADAS-2 for evaluating diagnostic accuracy studies. Focus on patient selection, index test, reference standard, and flow/timing."
-        
+
         if "ROB" in instrument_name.upper() or "COCHRANE" in instrument_name.upper():
             return f"{base_prompt} You are specifically trained in ROB-2 (Risk of Bias 2) for evaluating randomized controlled trials. Focus on randomization, deviations, missing data, measurement, and selective reporting."
 
@@ -695,7 +711,7 @@ class AIAssessmentService(LoggerMixin):
             f"{base_prompt} Read the PDF and answer the specific question based on "
             "the evidence found. Quote page numbers when possible."
         )
-    
+
     def _build_user_prompt(
         self,
         item: Any,
@@ -717,8 +733,8 @@ class AIAssessmentService(LoggerMixin):
         """
         levels_str = ", ".join(allowed_levels) if allowed_levels else "N/A"
 
-        question = item.question if hasattr(item, 'question') else ""
-        guidance = item.guidance if hasattr(item, 'guidance') else ""
+        question = item.question if hasattr(item, "question") else ""
+        guidance = item.guidance if hasattr(item, "guidance") else ""
 
         prompt = f"""Based on the article PDF, assess the following question:
 
@@ -734,22 +750,22 @@ Guidance: {guidance}
 Available response levels: {levels_str}
 
 Context:
-- Review title: {project.get('review_title', '')}
-- Condition studied: {project.get('condition_studied', '')}
+- Review title: {project.get("review_title", "")}
+- Condition studied: {project.get("condition_studied", "")}
 """
 
         # Add memory context if available (for batch processing)
         if memory_context:
-            prompt += f"""
+            prompt += """
 Previous assessments for context:
 """
             for prev in memory_context:
                 prompt += f"""
-- {prev['item_code']}: {prev['selected_level']}
-  Reason: {prev['justification'][:100]}...
+- {prev["item_code"]}: {prev["selected_level"]}
+  Reason: {prev["justification"][:100]}...
 """
 
-        prompt += f"""
+        prompt += """
 Instructions:
 1. Read the entire PDF carefully
 2. Identify relevant passages that address the question
@@ -760,11 +776,11 @@ Return STRICT JSON with:
 - selected_level: Your choice from the available levels
 - confidence_score: 0.0 to 1.0 indicating your confidence
 - justification: Brief explanation of your assessment
-- evidence_passages: Array of {{ text, page_number }} with supporting evidence
+- evidence_passages: Array of { text, page_number } with supporting evidence
 """
 
         return prompt
-    
+
     def _build_response_schema(self, allowed_levels: list[str]) -> dict[str, Any]:
         """Build response schema for OpenAI."""
         # If no levels defined, use free string
@@ -773,7 +789,7 @@ Return STRICT JSON with:
             level_schema = {"type": "string", "enum": allowed_levels}
         else:
             level_schema = {"type": "string"}
-        
+
         return {
             "type": "json_schema",
             "name": "assessment_result",
@@ -806,7 +822,7 @@ Return STRICT JSON with:
                 "additionalProperties": False,
             },
         }
-    
+
     async def _call_direct(
         self,
         input_file_node: dict[str, Any],
@@ -830,7 +846,7 @@ Return STRICT JSON with:
             ],
             "text": {"format": response_format},
         }
-        
+
         async with httpx.AsyncClient() as client:
             response = await client.post(
                 "https://api.openai.com/v1/responses",
@@ -841,7 +857,7 @@ Return STRICT JSON with:
                 },
                 timeout=120.0,
             )
-            
+
             if not response.is_success:
                 self.logger.error(
                     "openai_responses_error",
@@ -850,9 +866,9 @@ Return STRICT JSON with:
                     error=response.text[:500],
                 )
                 raise ValueError(f"OpenAI error: {response.status_code} - {response.text[:500]}")
-            
+
             result = response.json()
-            
+
             # Extrair output_text
             output_text = None
             for output_item in result.get("output", []):
@@ -861,13 +877,13 @@ Return STRICT JSON with:
                         if content.get("type") == "output_text":
                             output_text = content.get("text")
                             break
-            
+
             return {
                 "output_text": output_text,
                 "input_tokens": result.get("usage", {}).get("input_tokens"),
                 "output_tokens": result.get("usage", {}).get("output_tokens"),
             }
-    
+
     async def _call_with_file_search(
         self,
         input_file_node: dict[str, Any],
@@ -887,7 +903,7 @@ Return STRICT JSON with:
         """
         # For now, implement fallback to direct call
         # TODO: Implement upload to OpenAI Files API + full Vector Store
-        
+
         self.logger.warning(
             "file_search_falling_back_to_direct",
             trace_id=self.trace_id,
@@ -910,7 +926,7 @@ Return STRICT JSON with:
             raise ValueError(
                 f"File too large for direct processing. File Search not yet implemented. Error: {e}"
             )
-    
+
     def to_dict(self, result: AssessmentResult) -> dict[str, Any]:
         """
         Convert result to dict compatible with endpoint response.

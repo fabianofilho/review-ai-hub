@@ -6,13 +6,14 @@ Uses CanonicalArticlePayload and ArticleRepository for consistent normalization
 and deduplication across all ingestion flows.
 """
 
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import LoggerMixin
 from app.infrastructure.storage.base import StorageAdapter
-from app.models.article import ArticleFile, Article
+from app.models.article import Article, ArticleFile
 from app.repositories.article_repository import ArticleFileRepository, ArticleRepository
 from app.schemas.article_import import CSVImportResult
 from app.services.article_source_normalization import (
@@ -87,7 +88,7 @@ class ArticleImportService(LoggerMixin):
         self,
         *,
         project_id: UUID,
-        metadata: dict,
+        metadata: dict[str, Any],
         storage_key: str,
         original_filename: str,
         file_bytes: int = 0,

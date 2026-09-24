@@ -6,7 +6,6 @@ Usa mocks para não fazer chamadas reais à API.
 
 from unittest.mock import AsyncMock, MagicMock, patch
 
-import httpx
 import pytest
 from pydantic import BaseModel
 
@@ -15,7 +14,7 @@ from app.services.openai_service import OpenAIResponse, OpenAIService, OpenAIUsa
 
 class MockResponseModel(BaseModel):
     """Modelo de resposta para testes."""
-    
+
     answer: str
     confidence: float
 
@@ -53,7 +52,7 @@ def mock_successful_response() -> dict:
 
 class TestOpenAIService:
     """Testes para OpenAIService."""
-    
+
     @pytest.mark.asyncio
     async def test_chat_completion_returns_string(
         self,
@@ -64,22 +63,20 @@ class TestOpenAIService:
         mock_response = MagicMock()
         mock_response.is_success = True
         mock_response.json.return_value = mock_successful_response
-        
-        with patch.object(
-            openai_service, "_get_client"
-        ) as mock_get_client:
+
+        with patch.object(openai_service, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_client.post.return_value = mock_response
             mock_get_client.return_value = mock_client
-            
+
             result = await openai_service.chat_completion(
                 messages=[{"role": "user", "content": "Hello"}],
                 model="gpt-4o-mini",
             )
-            
+
             assert isinstance(result, str)
             assert "answer" in result
-    
+
     @pytest.mark.asyncio
     async def test_chat_completion_full_returns_response_object(
         self,
@@ -90,24 +87,22 @@ class TestOpenAIService:
         mock_response = MagicMock()
         mock_response.is_success = True
         mock_response.json.return_value = mock_successful_response
-        
-        with patch.object(
-            openai_service, "_get_client"
-        ) as mock_get_client:
+
+        with patch.object(openai_service, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_client.post.return_value = mock_response
             mock_get_client.return_value = mock_client
-            
+
             result = await openai_service.chat_completion_full(
                 messages=[{"role": "user", "content": "Hello"}],
             )
-            
+
             assert isinstance(result, OpenAIResponse)
             assert result.content is not None
             assert isinstance(result.usage, OpenAIUsage)
             assert result.usage.prompt_tokens == 100
             assert result.usage.completion_tokens == 50
-    
+
     @pytest.mark.asyncio
     async def test_chat_completion_handles_error(
         self,
@@ -118,19 +113,17 @@ class TestOpenAIService:
         mock_response.is_success = False
         mock_response.status_code = 500
         mock_response.text = "Internal Server Error"
-        
-        with patch.object(
-            openai_service, "_get_client"
-        ) as mock_get_client:
+
+        with patch.object(openai_service, "_get_client") as mock_get_client:
             mock_client = AsyncMock()
             mock_client.post.return_value = mock_response
             mock_get_client.return_value = mock_client
-            
+
             with pytest.raises(ValueError, match="OpenAI error"):
                 await openai_service.chat_completion(
                     messages=[{"role": "user", "content": "Hello"}],
                 )
-    
+
     def test_build_json_schema_format(
         self,
         openai_service: OpenAIService,
@@ -143,9 +136,9 @@ class TestOpenAIService:
             },
             "required": ["name"],
         }
-        
+
         result = openai_service.build_json_schema_format(schema, name="test")
-        
+
         assert result["type"] == "json_schema"
         assert result["json_schema"]["name"] == "test"
         assert result["json_schema"]["strict"] is True
@@ -154,15 +147,15 @@ class TestOpenAIService:
 
 class TestOpenAIUsage:
     """Testes para OpenAIUsage."""
-    
+
     def test_usage_defaults(self) -> None:
         """Test valores padrão de usage."""
         usage = OpenAIUsage()
-        
+
         assert usage.prompt_tokens == 0
         assert usage.completion_tokens == 0
         assert usage.total_tokens == 0
-    
+
     def test_usage_with_values(self) -> None:
         """Test usage com valores."""
         usage = OpenAIUsage(
@@ -170,7 +163,7 @@ class TestOpenAIUsage:
             completion_tokens=50,
             total_tokens=150,
         )
-        
+
         assert usage.prompt_tokens == 100
         assert usage.completion_tokens == 50
         assert usage.total_tokens == 150
@@ -178,7 +171,7 @@ class TestOpenAIUsage:
 
 class TestOpenAIResponse:
     """Testes para OpenAIResponse."""
-    
+
     def test_response_creation(self) -> None:
         """Test criação de response."""
         response = OpenAIResponse(
@@ -186,9 +179,8 @@ class TestOpenAIResponse:
             usage=OpenAIUsage(),
             model="gpt-4o-mini",
         )
-        
+
         assert response.content == "Hello world"
         assert response.model == "gpt-4o-mini"
         assert response.finish_reason == "stop"
         assert response.duration_ms == 0
-

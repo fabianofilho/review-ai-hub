@@ -75,13 +75,13 @@ class ZoteroAction(StrEnum):
 )
 @limiter.limit("120/minute")
 async def zotero_action(
-        request: Request,
+    request: Request,
     action: ZoteroAction,
     db: DbSession,
     user: CurrentUser,
     supabase: SupabaseClient,
     body: dict[str, Any] | None = None,
-) -> ApiResponse:
+) -> ApiResponse[Any] | JSONResponse:
     """
     Executa uma ação de integração com Zotero.
 
@@ -102,14 +102,15 @@ async def zotero_action(
         user_id=user.sub,
     )
 
+    result: dict[str, Any] | SyncStatusResponse | SyncItemResultsResponse
     try:
         match action:
             case ZoteroAction.SAVE_CREDENTIALS:
-                request = SaveCredentialsRequest(**body)
+                credentials = SaveCredentialsRequest(**body)
                 result = await service.save_credentials(
-                    zotero_user_id=request.zotero_user_id,
-                    api_key=request.api_key,
-                    library_type=request.library_type,
+                    zotero_user_id=credentials.zotero_user_id,
+                    api_key=credentials.api_key,
+                    library_type=credentials.library_type,
                 )
                 # Commit explícito para persistir credenciais
                 await db.commit()
@@ -121,21 +122,21 @@ async def zotero_action(
                 result = await service.list_collections()
 
             case ZoteroAction.FETCH_ITEMS:
-                request = FetchItemsRequest(**body)
+                items_request = FetchItemsRequest(**body)
                 result = await service.fetch_items(
-                    collection_key=request.collection_key,
-                    limit=request.limit,
-                    start=request.start,
+                    collection_key=items_request.collection_key,
+                    limit=items_request.limit,
+                    start=items_request.start,
                 )
 
             case ZoteroAction.FETCH_ATTACHMENTS:
-                request = FetchAttachmentsRequest(**body)
-                result = await service.fetch_attachments(item_key=request.item_key)
+                attachments_request = FetchAttachmentsRequest(**body)
+                result = await service.fetch_attachments(item_key=attachments_request.item_key)
 
             case ZoteroAction.DOWNLOAD_ATTACHMENT:
-                request = DownloadAttachmentRequest(**body)
+                download_request = DownloadAttachmentRequest(**body)
                 result = await service.download_attachment(
-                    attachment_key=request.attachment_key,
+                    attachment_key=download_request.attachment_key,
                 )
 
             case ZoteroAction.SYNC_COLLECTION:
@@ -156,7 +157,7 @@ async def zotero_action(
                     collection_key=payload.collection_key,
                 )
                 await db.commit()
-                task = import_zotero_collection_task.delay(
+                import_zotero_collection_task.delay(
                     project_id=str(project_id),
                     collection_key=payload.collection_key,
                     user_id=user.sub,
@@ -167,7 +168,7 @@ async def zotero_action(
                 )
                 response = ApiResponse.success(
                     SyncCollectionResponse(
-                        syncRunId=str(sync_run.id),
+                        sync_run_id=str(sync_run.id),
                         status="pending",
                         message="Sync started",
                     ),
@@ -179,44 +180,44 @@ async def zotero_action(
                 )
 
             case ZoteroAction.SYNC_STATUS:
-                payload = SyncStatusRequest(**body)
+                status_request = SyncStatusRequest(**body)
                 import_service = ZoteroImportService(
                     db=db,
                     user_id=user.sub,
                     storage=create_storage_adapter(supabase),
                     trace_id=trace_id or "unknown-trace",
                 )
-                run = await import_service.get_sync_status(UUID(payload.sync_run_id))
+                run = await import_service.get_sync_status(UUID(status_request.sync_run_id))
                 if not run:
-                    raise NotFoundError(resource="sync_run", resource_id=payload.sync_run_id)
+                    raise NotFoundError(resource="sync_run", resource_id=status_request.sync_run_id)
                 result = SyncStatusResponse(
-                    syncRunId=str(run.id),
+                    sync_run_id=str(run.id),
                     status=run.status,
                     counts=SyncCountsResponse(
-                        totalReceived=run.total_received,
+                        total_received=run.total_received,
                         persisted=run.persisted,
                         updated=run.updated,
                         skipped=run.skipped,
                         failed=run.failed,
-                        removedAtSource=run.removed_at_source,
+                        removed_at_source=run.removed_at_source,
                         reactivated=run.reactivated,
                     ),
-                    startedAt=run.started_at,
-                    completedAt=run.completed_at,
-                    traceId=trace_id or "",
+                    started_at=run.started_at,
+                    completed_at=run.completed_at,
+                    trace_id=trace_id or "",
                 )
 
             case ZoteroAction.SYNC_RETRY_FAILED:
-                payload = SyncRetryFailedRequest(**body)
+                retry_request = SyncRetryFailedRequest(**body)
                 import_service = ZoteroImportService(
                     db=db,
                     user_id=user.sub,
                     storage=create_storage_adapter(supabase),
                     trace_id=trace_id or "unknown-trace",
                 )
-                run = await import_service.get_sync_status(UUID(payload.sync_run_id))
+                run = await import_service.get_sync_status(UUID(retry_request.sync_run_id))
                 if not run:
-                    raise NotFoundError(resource="sync_run", resource_id=payload.sync_run_id)
+                    raise NotFoundError(resource="sync_run", resource_id=retry_request.sync_run_id)
                 retry_run = await import_service.create_sync_run(
                     project_id=run.project_id,
                     collection_key=run.source_collection_key,
@@ -227,54 +228,56 @@ async def zotero_action(
                     source_sync_run_id=str(run.id),
                     user_id=user.sub,
                     sync_run_id=str(retry_run.id),
-                    limit=payload.limit,
+                    limit=retry_request.limit,
                 )
-                response = ApiResponse.success(
+                retry_response = ApiResponse.success(
                     SyncRetryFailedResponse(
-                        syncRunId=str(retry_run.id),
-                        retryOfSyncRunId=str(run.id),
-                        queuedItems=payload.limit,
+                        sync_run_id=str(retry_run.id),
+                        retry_of_sync_run_id=str(run.id),
+                        queued_items=retry_request.limit,
                     ),
                     trace_id=trace_id,
                 )
                 return JSONResponse(
                     status_code=status.HTTP_202_ACCEPTED,
-                    content=response.model_dump(by_alias=True),
+                    content=retry_response.model_dump(by_alias=True),
                 )
 
             case ZoteroAction.SYNC_ITEM_RESULT:
-                payload = SyncItemResultRequest(**body)
+                results_request = SyncItemResultRequest(**body)
                 import_service = ZoteroImportService(
                     db=db,
                     user_id=user.sub,
                     storage=create_storage_adapter(supabase),
                     trace_id=trace_id or "unknown-trace",
                 )
-                run = await import_service.get_sync_status(UUID(payload.sync_run_id))
+                run = await import_service.get_sync_status(UUID(results_request.sync_run_id))
                 if not run:
-                    raise NotFoundError(resource="sync_run", resource_id=payload.sync_run_id)
+                    raise NotFoundError(
+                        resource="sync_run", resource_id=results_request.sync_run_id
+                    )
                 events, total = await import_service.get_sync_item_results(
-                    sync_run_id=UUID(payload.sync_run_id),
-                    status_filter=payload.status_filter,
-                    offset=payload.offset,
-                    limit=payload.limit,
+                    sync_run_id=UUID(results_request.sync_run_id),
+                    status_filter=results_request.status_filter,
+                    offset=results_request.offset,
+                    limit=results_request.limit,
                 )
                 result = SyncItemResultsResponse(
                     items=[
                         SyncItemResultEntry(
-                            zoteroItemKey=event.zotero_item_key,
-                            articleId=str(event.article_id) if event.article_id else None,
+                            zotero_item_key=event.zotero_item_key,
+                            article_id=str(event.article_id) if event.article_id else None,
                             status=event.status,
-                            errorCode=event.error_code,
-                            errorMessage=event.error_message,
-                            authorityRuleApplied=event.authority_rule_applied,
-                            processedAt=event.processed_at,
+                            error_code=event.error_code,
+                            error_message=event.error_message,
+                            authority_rule_applied=event.authority_rule_applied,
+                            processed_at=event.processed_at,
                         )
                         for event in events
                     ],
                     total=total,
-                    offset=payload.offset,
-                    limit=payload.limit,
+                    offset=results_request.offset,
+                    limit=results_request.limit,
                 )
 
             case _:
@@ -299,7 +302,11 @@ async def zotero_action(
             action=action.value,
             error=str(e),
         )
-        if action in {ZoteroAction.SYNC_RETRY_FAILED, ZoteroAction.SYNC_STATUS, ZoteroAction.SYNC_ITEM_RESULT}:
+        if action in {
+            ZoteroAction.SYNC_RETRY_FAILED,
+            ZoteroAction.SYNC_STATUS,
+            ZoteroAction.SYNC_ITEM_RESULT,
+        }:
             raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail=str(e)) from e
         raise HTTPException(status_code=status.HTTP_400_BAD_REQUEST, detail=str(e)) from e
     except Exception as e:

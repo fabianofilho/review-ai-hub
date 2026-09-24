@@ -29,7 +29,8 @@ async def test_import_collection_counts_created_items(service: ZoteroImportServi
     service._sync_runs.update_counts = AsyncMock()  # type: ignore[attr-defined]
     service._mark_removed_items = AsyncMock(return_value=0)  # type: ignore[method-assign]
     service._zotero.fetch_items = AsyncMock(
-        return_value={"items": [{"key": "A", "data": {"title": "A"}}]})  # type: ignore[attr-defined]
+        return_value={"items": [{"key": "A", "data": {"title": "A"}}]}
+    )  # type: ignore[attr-defined]
     service._process_item = AsyncMock(  # type: ignore[method-assign]
         return_value=MagicMock(success=True, error=None, zotero_key="A")
     )

@@ -9,18 +9,17 @@ This module configures the main FastAPI application with:
 - API v1 routes
 """
 
+from collections.abc import AsyncGenerator
 from contextlib import asynccontextmanager
-from typing import AsyncGenerator
 
+from alembic.config import Config as AlembicConfig
+from alembic.runtime.migration import MigrationContext
+from alembic.script import ScriptDirectory
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from slowapi import _rate_limit_exceeded_handler
 from slowapi.errors import RateLimitExceeded
 from sqlalchemy import create_engine, text
-
-from alembic.runtime.migration import MigrationContext
-from alembic.script import ScriptDirectory
-from alembic.config import Config as AlembicConfig
 
 from app.api.v1.router import api_router
 from app.core.config import settings
@@ -29,7 +28,7 @@ from app.core.error_handler import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.middleware import register_middlewares
 from app.core.security import get_jwks
-from app.models import Base  # Import all models so they are registered
+from app.models import Base  # noqa: F401  # Import all models so they are registered
 from app.utils.rate_limiter import limiter
 
 logger = get_logger(__name__)
@@ -47,9 +46,7 @@ def check_pending_migrations() -> None:
     script = ScriptDirectory.from_config(alembic_cfg)
 
     raw_database_url = settings.DIRECT_DATABASE_URL or settings.DATABASE_URL.unicode_string()
-    sync_url = raw_database_url.replace(
-        "postgresql://", "postgresql+psycopg://", 1
-    )
+    sync_url = raw_database_url.replace("postgresql://", "postgresql+psycopg://", 1)
     engine = create_engine(sync_url)
     try:
         with engine.connect() as conn:
@@ -69,7 +66,7 @@ def check_pending_migrations() -> None:
 
 
 @asynccontextmanager
-async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
+async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:  # noqa: ARG001
     """
     Manages application lifecycle.
 
@@ -99,7 +96,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
         logger.warning("db_pool_warm_skipped", error=str(e))
 
     yield
-    
+
     # Shutdown
     logger.info("application_shutdown")
 
@@ -120,10 +117,12 @@ def create_app() -> FastAPI:
         redoc_url=f"{settings.API_V1_PREFIX}/redoc",
         lifespan=lifespan,
     )
-    
+
     # Rate Limiter
     app.state.limiter = limiter
-    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)
+    # Starlette types exception handlers as taking a bare Exception, so a handler
+    # narrowed to RateLimitExceeded is rejected although it is only called for it.
+    app.add_exception_handler(RateLimitExceeded, _rate_limit_exceeded_handler)  # type: ignore[arg-type]
 
     # Register custom exception handlers
     register_exception_handlers(app)
@@ -140,15 +139,15 @@ def create_app() -> FastAPI:
 
     # Register custom middlewares (RequestId, Logging, Timing)
     register_middlewares(app)
-    
+
     # API Routes
     app.include_router(api_router, prefix=settings.API_V1_PREFIX)
-    
+
     @app.get("/health", tags=["Health"])
     async def health_check() -> dict[str, str]:
         """Health check endpoint."""
         return {"status": "healthy", "version": "0.1.0"}
-    
+
     @app.get("/", tags=["Root"])
     async def root() -> dict[str, str]:
         """
@@ -160,7 +159,7 @@ def create_app() -> FastAPI:
             "version": "0.1.0",
             "docs": f"{settings.API_V1_PREFIX}/docs",
         }
-    
+
     return app
 
 
@@ -169,11 +168,10 @@ app = create_app()
 
 if __name__ == "__main__":
     import uvicorn
-    
+
     uvicorn.run(
         "app.main:app",
         host="0.0.0.0",
         port=8000,
         reload=settings.DEBUG,
     )
-

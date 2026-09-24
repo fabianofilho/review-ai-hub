@@ -9,12 +9,15 @@ import csv
 import io
 import re
 import zipfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
+from typing import Any
 from uuid import UUID
+
+from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import LoggerMixin
 from app.infrastructure.storage.base import StorageAdapter
-from app.models.article import Article, ArticleFile
+from app.models.article import Article
 from app.repositories.article_repository import ArticleRepository
 from app.repositories.project_repository import ProjectMemberRepository
 
@@ -84,7 +87,9 @@ def _build_ris(articles: list[Article]) -> bytes:
         if a.journal_title:
             lines.append(f"JO  - {(a.journal_title or '').replace(chr(10), ' ')}")
         if a.abstract:
-            lines.append(f"AB  - {(a.abstract or '').replace(chr(10), ' ').replace(chr(13), '')[:255]}")
+            lines.append(
+                f"AB  - {(a.abstract or '').replace(chr(10), ' ').replace(chr(13), '')[:255]}"
+            )
         if a.doi:
             lines.append(f"DO  - {a.doi}")
         if a.pmid:
@@ -105,17 +110,19 @@ def _build_rdf(articles: list[Article]) -> bytes:
     for a in articles:
         aid = a.id.hex
         parts.append(f'  <rdf:Description rdf:about="#{aid}">')
-        parts.append("    <rdf:type rdf:resource=\"http://purl.org/ontology/bibo/AcademicArticle\"/>")
+        parts.append('    <rdf:type rdf:resource="http://purl.org/ontology/bibo/AcademicArticle"/>')
         parts.append(f"    <dc:title>{_xml_esc(a.title or '')}</dc:title>")
-        for au in (a.authors or []):
+        for au in a.authors or []:
             if (au or "").strip():
                 parts.append(f"    <dc:creator>{_xml_esc(au.strip())}</dc:creator>")
         if a.journal_title:
-            parts.append(f"    <bibo:Journal rdf:resource=\"#journal_{aid}\"/>")
+            parts.append(f'    <bibo:Journal rdf:resource="#journal_{aid}"/>')
         if a.publication_year:
             parts.append(f"    <bibo:issued>{a.publication_year}</bibo:issued>")
         if a.abstract:
-            parts.append(f"    <bibo:abstract>{_xml_esc((a.abstract or '')[:2000])}</bibo:abstract>")
+            parts.append(
+                f"    <bibo:abstract>{_xml_esc((a.abstract or '')[:2000])}</bibo:abstract>"
+            )
         if a.doi:
             parts.append(f"    <bibo:doi>{_xml_esc(a.doi)}</bibo:doi>")
         parts.append("  </rdf:Description>")
@@ -124,12 +131,7 @@ def _build_rdf(articles: list[Article]) -> bytes:
 
 
 def _xml_esc(s: str) -> str:
-    return (
-        s.replace("&", "&amp;")
-        .replace("<", "&lt;")
-        .replace(">", "&gt;")
-        .replace('"', "&quot;")
-    )
+    return s.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;").replace('"', "&quot;")
 
 
 class ArticlesExportService(LoggerMixin):
@@ -138,11 +140,11 @@ class ArticlesExportService(LoggerMixin):
     """
 
     def __init__(
-            self,
-            db,
-            user_id: str,
-            storage: StorageAdapter,
-            trace_id: str | None = None,
+        self,
+        db: AsyncSession,
+        user_id: str,
+        storage: StorageAdapter,
+        trace_id: str | None = None,
     ):
         self.db = db
         self.user_id = user_id
@@ -156,11 +158,11 @@ class ArticlesExportService(LoggerMixin):
         return ProjectMemberRepository(self.db)
 
     async def get_articles_for_export(
-            self,
-            project_id: UUID,
-            article_ids: list[UUID],
-            *,
-            include_files: bool = True,
+        self,
+        project_id: UUID,
+        article_ids: list[UUID],
+        *,
+        include_files: bool = True,
     ) -> list[Article]:
         """Carrega artigos por IDs no projeto; verifica permissão via project_id."""
         repo = self._articles_repo()
@@ -171,13 +173,13 @@ class ArticlesExportService(LoggerMixin):
         )
 
     async def run_export(
-            self,
-            project_id: UUID,
-            article_ids: list[UUID],
-            formats: list[str],
-            file_scope: str,
-            job_id: str | None = None,
-    ) -> tuple[bytes, str, str, list[dict]]:
+        self,
+        project_id: UUID,
+        article_ids: list[UUID],
+        formats: list[str],
+        file_scope: str,
+        job_id: str | None = None,  # noqa: ARG002
+    ) -> tuple[bytes, str, str, list[dict[str, str]]]:
         """
         Executa export síncrono: gera conteúdo (CSV/RIS/RDF e opcionalmente ZIP com arquivos).
         Retorna (content_bytes, content_type, suggested_filename, skipped_files).
@@ -190,7 +192,7 @@ class ArticlesExportService(LoggerMixin):
         if not articles:
             return b"", "application/octet-stream", "export.bin", []
 
-        skipped: list[dict] = []
+        skipped: list[dict[str, str]] = []
         bucket = "articles"
 
         if file_scope == "none":
@@ -230,7 +232,11 @@ class ArticlesExportService(LoggerMixin):
                     zf.writestr("articles_export.rdf", _build_rdf(articles))
                 for art in articles:
                     main_file = next(
-                        (f for f in (art.files or []) if (getattr(f, "file_role", None) or "").upper() == "MAIN"),
+                        (
+                            f
+                            for f in (art.files or [])
+                            if (getattr(f, "file_role", None) or "").upper() == "MAIN"
+                        ),
                         None,
                     )
                     if main_file:
@@ -241,7 +247,12 @@ class ArticlesExportService(LoggerMixin):
                             zf.writestr(name, data)
                         except Exception as e:
                             skipped.append(
-                                {"article_id": str(art.id), "storage_key": main_file.storage_key, "reason": str(e)})
+                                {
+                                    "article_id": str(art.id),
+                                    "storage_key": main_file.storage_key,
+                                    "reason": str(e),
+                                }
+                            )
                     # else: artigo sem main file -> só metadata, sem erro
             else:
                 # all: pasta por artigo id_sanitized_title
@@ -256,11 +267,19 @@ class ArticlesExportService(LoggerMixin):
                     for f in art.files or []:
                         try:
                             data = await self.storage.download(bucket, f.storage_key)
-                            name = f.original_filename or f.storage_key.split("/")[-1] or f"{f.id}.bin"
+                            name = (
+                                f.original_filename or f.storage_key.split("/")[-1] or f"{f.id}.bin"
+                            )
                             name = re.sub(r'[<>:"/\\|?*\x00-\x1f]', "_", name)
                             zf.writestr(f"{folder}/{name}", data)
                         except Exception as e:
-                            skipped.append({"article_id": str(art.id), "storage_key": f.storage_key, "reason": str(e)})
+                            skipped.append(
+                                {
+                                    "article_id": str(art.id),
+                                    "storage_key": f.storage_key,
+                                    "reason": str(e),
+                                }
+                            )
             if skipped:
                 manifest = "Skipped files (could not be included):\n" + "\n".join(
                     f"{s['article_id']}\t{s['storage_key']}\t{s['reason']}" for s in skipped
@@ -269,13 +288,13 @@ class ArticlesExportService(LoggerMixin):
         return zip_buf.getvalue(), "application/zip", "articles_export.zip", skipped
 
     async def run_export_async(
-            self,
-            project_id: UUID,
-            article_ids: list[UUID],
-            formats: list[str],
-            file_scope: str,
-            job_id: str,
-    ) -> dict:
+        self,
+        project_id: UUID,
+        article_ids: list[UUID],
+        formats: list[str],
+        file_scope: str,
+        job_id: str,
+    ) -> dict[str, Any]:
         """
         Executa export e faz upload do ZIP para storage; retorna download_url, expires_at, skipped_files.
         """
@@ -287,10 +306,17 @@ class ArticlesExportService(LoggerMixin):
         expires_in = 3600
         download_url = await self.storage.get_signed_url("articles", path, expires_in=expires_in)
         from datetime import timedelta
-        expires_at = (datetime.now(timezone.utc) + timedelta(seconds=expires_in)).isoformat()
+
+        expires_at = (datetime.now(UTC) + timedelta(seconds=expires_in)).isoformat()
         return {
             "download_url": download_url,
             "expires_at": expires_at,
-            "skipped_files": [{"articleId": s["article_id"], "storageKey": s["storage_key"], "reason": s["reason"]} for
-                              s in skipped],
+            "skipped_files": [
+                {
+                    "articleId": s["article_id"],
+                    "storageKey": s["storage_key"],
+                    "reason": s["reason"],
+                }
+                for s in skipped
+            ],
         }

@@ -16,25 +16,25 @@ from pydantic_settings import BaseSettings, SettingsConfigDict
 class Settings(BaseSettings):
     """
     Configurações da aplicação carregadas de variáveis de ambiente.
-    
+
     Todas as variáveis podem ser sobrescritas via .env ou environment.
     """
-    
+
     model_config = SettingsConfigDict(
         env_file=str(Path(__file__).resolve().parents[2] / ".env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
     )
-    
+
     # =================== APP ===================
     PROJECT_NAME: str = "Review Hub API"
     DEBUG: bool = False
     API_V1_PREFIX: str = "/api/v1"
-    
+
     # =================== CORS ===================
     CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:3000,http://localhost:8080,http://127.0.0.1:8080,https://review-ai-hub.vercel.app"
-    
+
     @property
     def cors_origins_list(self) -> list[str]:
         """Retorna lista de origens CORS com fallback seguro para desenvolvimento."""
@@ -53,7 +53,7 @@ class Settings(BaseSettings):
             if origin not in merged:
                 merged.append(origin)
         return merged
-    
+
     # =================== SUPABASE ===================
     SUPABASE_URL: str
     SUPABASE_SERVICE_ROLE_KEY: str
@@ -61,7 +61,7 @@ class Settings(BaseSettings):
     SUPABASE_JWT_SECRET: str | None = None
     # local | production (default: production)
     SUPABASE_ENV: str | None = None
-    
+
     # =================== DATABASE ===================
     # Connection string do Postgres (Supabase ou local)
     DATABASE_URL: PostgresDsn
@@ -69,7 +69,7 @@ class Settings(BaseSettings):
     # Set this to the Supabase "Direct connection" URL (port 5432, db.xxx.supabase.co).
     # Falls back to DATABASE_URL in local dev where there is no pooler.
     DIRECT_DATABASE_URL: str | None = None
-    
+
     @property
     def async_database_url(self) -> str:
         """Retorna a URL do banco para uso com asyncpg."""
@@ -80,19 +80,19 @@ class Settings(BaseSettings):
         if "sslmode" in query_items and "ssl" not in query_items:
             query_items["ssl"] = query_items.pop("sslmode")
         return urlunparse(parsed._replace(query=urlencode(query_items)))
-    
+
     # =================== OPENAI ===================
     # Opcional: fallback global para quando usuário não tem BYOK configurado
     OPENAI_API_KEY: str | None = None
     OPENAI_DEFAULT_MODEL: str = "gpt-4o-mini"
-    
+
     # =================== RATE LIMITING ===================
     RATE_LIMIT_PER_MINUTE: int = 60
-    
+
     # =================== SECURITY ===================
     # Chave para criptografia de dados sensíveis (ex: Zotero API key)
     ENCRYPTION_KEY: str = "review_hub_default_key_change_me_in_production"
-    
+
     # =================== LANGSMITH (OPCIONAL) ===================
     LANGCHAIN_TRACING_V2: bool = False
     LANGCHAIN_API_KEY: str | None = None
@@ -109,10 +109,10 @@ class Settings(BaseSettings):
 def get_settings() -> Settings:
     """
     Retorna instância singleton das configurações.
-    
+
     Usa lru_cache para evitar re-parsing das variáveis de ambiente.
     """
-    return Settings()  # type: ignore[call-arg]
+    return Settings()
 
 
 settings = get_settings()

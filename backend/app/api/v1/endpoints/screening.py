@@ -5,8 +5,9 @@ API endpoints for the article screening workflow.
 """
 
 import uuid
+from typing import Any
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Request
 
 from app.core.deps import CurrentUser, DbSession, SupabaseClient
 from app.core.factories import create_storage_adapter
@@ -24,12 +25,10 @@ from app.schemas.screening import (
     ScreeningDashboardData,
     ScreeningDecisionCreate,
     ScreeningDecisionResponse,
-    ScreeningProgressStats,
-    PRISMAFlowData,
 )
+from app.services.ai_screening_service import AIScreeningService
 from app.services.api_key_service import APIKeyService
 from app.services.screening_service import ScreeningService
-from app.services.ai_screening_service import AIScreeningService
 from app.utils.rate_limiter import limiter
 
 router = APIRouter()
@@ -50,7 +49,7 @@ async def upsert_config(
     payload: ScreeningConfigCreate,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """Create or update screening configuration for a project/phase."""
     trace_id = str(uuid.uuid4())
     try:
@@ -85,9 +84,10 @@ async def get_config(
     phase: str,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """Get screening configuration for a project/phase."""
     from app.repositories.screening_repository import ScreeningConfigRepository
+
     repo = ScreeningConfigRepository(db)
     config = await repo.get_by_project_and_phase(project_id, phase)
     if not config:
@@ -111,7 +111,7 @@ async def submit_decision(
     payload: ScreeningDecisionCreate,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """Submit a screening decision for an article."""
     trace_id = str(uuid.uuid4())
     try:
@@ -132,7 +132,9 @@ async def submit_decision(
         )
     except Exception as e:
         logger.error("screening_decision_error", trace_id=trace_id, error=str(e))
-        return ApiResponse.failure(code="SCREENING_DECISION_ERROR", message=str(e), trace_id=trace_id)
+        return ApiResponse.failure(
+            code="SCREENING_DECISION_ERROR", message=str(e), trace_id=trace_id
+        )
 
 
 @router.get(
@@ -145,13 +147,12 @@ async def list_decisions(
     phase: str,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """List all screening decisions for a project/phase."""
-    from app.repositories.screening_repository import ScreeningDecisionRepository
-    repo = ScreeningDecisionRepository(db)
+    from sqlalchemy import and_, select
 
-    from sqlalchemy import select, and_
     from app.models.screening import ScreeningDecision
+
     result = await db.execute(
         select(ScreeningDecision).where(
             and_(
@@ -162,7 +163,9 @@ async def list_decisions(
     )
     decisions = result.scalars().all()
     return ApiResponse.success(
-        data=[ScreeningDecisionResponse.model_validate(d).model_dump(by_alias=True) for d in decisions]
+        data=[
+            ScreeningDecisionResponse.model_validate(d).model_dump(by_alias=True) for d in decisions
+        ]
     )
 
 
@@ -179,7 +182,7 @@ async def get_progress(
     phase: str,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """Get screening progress statistics."""
     service = ScreeningService(db=db, user_id=user.sub)
     progress = await service.get_progress(uuid.UUID(project_id), phase)
@@ -199,13 +202,16 @@ async def list_conflicts(
     phase: str,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """List all unresolved screening conflicts."""
     from app.repositories.screening_repository import ScreeningConflictRepository
+
     repo = ScreeningConflictRepository(db)
     conflicts = await repo.get_unresolved(project_id, phase)
     return ApiResponse.success(
-        data=[ScreeningConflictResponse.model_validate(c).model_dump(by_alias=True) for c in conflicts]
+        data=[
+            ScreeningConflictResponse.model_validate(c).model_dump(by_alias=True) for c in conflicts
+        ]
     )
 
 
@@ -221,7 +227,7 @@ async def resolve_conflict(
     payload: ResolveConflictRequest,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """Resolve a screening conflict."""
     trace_id = str(uuid.uuid4())
     try:
@@ -239,7 +245,9 @@ async def resolve_conflict(
         )
     except Exception as e:
         logger.error("screening_conflict_error", trace_id=trace_id, error=str(e))
-        return ApiResponse.failure(code="SCREENING_CONFLICT_ERROR", message=str(e), trace_id=trace_id)
+        return ApiResponse.failure(
+            code="SCREENING_CONFLICT_ERROR", message=str(e), trace_id=trace_id
+        )
 
 
 # =================== AI SCREENING ===================
@@ -257,7 +265,7 @@ async def ai_screen(
     db: DbSession,
     user: CurrentUser,
     supabase: SupabaseClient,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """AI-screen a single article."""
     trace_id = str(uuid.uuid4())
     try:
@@ -311,7 +319,7 @@ async def ai_screen_batch(
     db: DbSession,
     user: CurrentUser,
     supabase: SupabaseClient,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """AI-screen multiple articles."""
     trace_id = str(uuid.uuid4())
     try:
@@ -342,7 +350,9 @@ async def ai_screen_batch(
         return ApiResponse.success(data=results, trace_id=trace_id)
     except Exception as e:
         logger.error("ai_screening_batch_error", trace_id=trace_id, error=str(e))
-        return ApiResponse.failure(code="AI_SCREENING_BATCH_ERROR", message=str(e), trace_id=trace_id)
+        return ApiResponse.failure(
+            code="AI_SCREENING_BATCH_ERROR", message=str(e), trace_id=trace_id
+        )
 
 
 # =================== PRISMA ===================
@@ -357,7 +367,7 @@ async def get_prisma(
     project_id: str,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """Get PRISMA 2020 flow diagram counts."""
     service = ScreeningService(db=db, user_id=user.sub)
     prisma = await service.get_prisma_counts(uuid.UUID(project_id))
@@ -377,7 +387,7 @@ async def get_dashboard(
     phase: str,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """Get screening dashboard with progress and inter-rater metrics."""
     service = ScreeningService(db=db, user_id=user.sub)
     pid = uuid.UUID(project_id)
@@ -409,7 +419,7 @@ async def bulk_decide(
     payload: BulkDecideRequest,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """Bulk include/exclude multiple articles."""
     trace_id = str(uuid.uuid4())
     try:
@@ -440,7 +450,7 @@ async def advance_to_fulltext(
     payload: AdvanceToFullTextRequest,
     db: DbSession,
     user: CurrentUser,
-) -> ApiResponse:
+) -> ApiResponse[Any]:
     """Advance included articles from title/abstract to full-text screening."""
     trace_id = str(uuid.uuid4())
     try:
