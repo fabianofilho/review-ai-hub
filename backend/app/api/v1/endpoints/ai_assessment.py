@@ -416,8 +416,7 @@ async def review_ai_suggestion(
         # 3. Process action
         if payload.action == "accept":
             # Accept suggestion and create final assessment
-            suggestion.status = "accepted"
-            await suggestion_repo.update(suggestion)
+            await suggestion_repo.update(suggestion, {"status": "accepted"})
 
             # Create AIAssessment from suggestion
             assessment = AIAssessment(
@@ -444,8 +443,7 @@ async def review_ai_suggestion(
                     detail="modified_value is required for modify action",
                 )
 
-            suggestion.status = "accepted"
-            await suggestion_repo.update(suggestion)
+            await suggestion_repo.update(suggestion, {"status": "accepted"})
 
             # Create AIAssessment with modified values
             assessment = AIAssessment(
@@ -470,9 +468,13 @@ async def review_ai_suggestion(
 
         elif payload.action == "reject":
             # Reject suggestion (no assessment created)
-            suggestion.status = "rejected"
-            suggestion.metadata_["rejection_notes"] = payload.review_notes
-            await suggestion_repo.update(suggestion)
+            await suggestion_repo.update(
+                suggestion,
+                {
+                    "status": "rejected",
+                    "metadata_": {**suggestion.metadata_, "rejection_notes": payload.review_notes},
+                },
+            )
 
         else:
             raise HTTPException(
