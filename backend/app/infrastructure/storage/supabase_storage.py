@@ -208,7 +208,8 @@ class SupabaseStorageAdapter(StorageAdapter, LoggerMixin):
         """
         try:
             response = self.client.storage.from_(bucket).create_signed_url(path, expires_in)
-            return response.get("signedURL", "")
+            # storage3 returns {"signedURL": None} when the API gives no URL.
+            return response.get("signedURL") or ""
         except Exception as e:
             raise StorageError(f"Failed to get signed URL: {e}", bucket, path)
 
