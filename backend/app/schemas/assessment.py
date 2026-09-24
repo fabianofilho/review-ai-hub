@@ -225,7 +225,8 @@ class AISuggestionSchema(BaseModel):
     metadata_: dict[str, Any] = Field(default={}, alias="metadata")
     created_at: datetime = Field(..., alias="createdAt")
 
-    @computed_field(alias="assessmentItemId")  # type: ignore[misc]
+    # mypy rejects decorators stacked on @property; pydantic documents this ignore.
+    @computed_field(alias="assessmentItemId")  # type: ignore[prop-decorator]
     @property
     def effective_assessment_item_id(self) -> UUID:
         """Return whichever item ID is set (global or project-scoped)."""

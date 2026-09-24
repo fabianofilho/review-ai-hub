@@ -48,7 +48,7 @@ class ApiResponse(BaseModel, Generic[T]):
         message: str,
         details: dict[str, Any] | None = None,
         trace_id: str | None = None,
-    ) -> "ApiResponse[None]":
+    ) -> "ApiResponse[T]":
         """Cria resposta de erro."""
         return cls(
             ok=False,
