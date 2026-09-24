@@ -13,7 +13,7 @@ import pytest
 
 # Importar todos os ENUMs Python para validação
 from app.models.article import FileRole
-from app.models.assessment import AssessmentStatus
+from app.models.assessment import AssessmentSource, AssessmentStatus
 from app.models.base import POSTGRESQL_ENUM_VALUES, PostgreSQLEnumType
 from app.models.extraction import (
     ExtractionCardinality,
@@ -26,6 +26,11 @@ from app.models.extraction import (
     SuggestionStatus,
 )
 from app.models.project import ProjectMemberRole, ReviewType
+from app.models.screening import (
+    ScreeningConflictStatusValue,
+    ScreeningDecisionValue,
+    ScreeningPhase,
+)
 
 
 class TestPostgreSQLEnumType:
@@ -96,6 +101,10 @@ class TestPostgreSQLEnumValuesMapping:
             "suggestion_status",
             "extraction_instance_status",
             "assessment_status",
+            "assessment_source",
+            "screening_phase",
+            "screening_decision",
+            "screening_conflict_status",
         }
 
         actual_enums = set(POSTGRESQL_ENUM_VALUES.keys())
@@ -129,6 +138,10 @@ class TestPythonEnumsMatchPostgreSQL:
             (SuggestionStatus, "suggestion_status"),
             (ExtractionInstanceStatus, "extraction_instance_status"),
             (AssessmentStatus, "assessment_status"),
+            (AssessmentSource, "assessment_source"),
+            (ScreeningPhase, "screening_phase"),
+            (ScreeningDecisionValue, "screening_decision"),
+            (ScreeningConflictStatusValue, "screening_conflict_status"),
         ],
     )
     def test_python_enum_matches_postgresql(
@@ -163,6 +176,10 @@ class TestPythonEnumsMatchPostgreSQL:
             (SuggestionStatus, "suggestion_status"),
             (ExtractionInstanceStatus, "extraction_instance_status"),
             (AssessmentStatus, "assessment_status"),
+            (AssessmentSource, "assessment_source"),
+            (ScreeningPhase, "screening_phase"),
+            (ScreeningDecisionValue, "screening_decision"),
+            (ScreeningConflictStatusValue, "screening_conflict_status"),
         ],
     )
     def test_python_enum_is_str_subclass(self, python_enum: type[PyEnum], postgres_enum_name: str):
@@ -222,6 +239,10 @@ class TestEnumCreationFromString:
             (SuggestionStatus, "pending"),
             (ExtractionInstanceStatus, "pending"),
             (AssessmentStatus, "in_progress"),
+            (AssessmentSource, "human"),
+            (ScreeningPhase, "title_abstract"),
+            (ScreeningDecisionValue, "include"),
+            (ScreeningConflictStatusValue, "none"),
         ],
     )
     def test_enum_from_valid_string(self, python_enum: type[PyEnum], valid_value: str):
@@ -244,6 +265,10 @@ class TestEnumCreationFromString:
             SuggestionStatus,
             ExtractionInstanceStatus,
             AssessmentStatus,
+            AssessmentSource,
+            ScreeningPhase,
+            ScreeningDecisionValue,
+            ScreeningConflictStatusValue,
         ],
     )
     def test_enum_from_invalid_string_raises(self, python_enum: type[PyEnum]):
