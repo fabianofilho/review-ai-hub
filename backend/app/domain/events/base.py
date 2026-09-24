@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from collections.abc import Callable
 from dataclasses import dataclass, field
 from datetime import UTC, datetime
-from typing import Any, TypeVar
+from typing import Any, TypeVar, cast
 from uuid import UUID, uuid4
 
 import structlog
@@ -18,6 +18,7 @@ logger = structlog.get_logger()
 
 # Type var para eventos
 E = TypeVar("E", bound="DomainEvent")
+R = TypeVar("R")
 
 
 @dataclass
@@ -74,12 +75,13 @@ class EventBus:
     """
 
     _instance: "EventBus | None" = None
+    _handlers: dict[str, list[EventHandler]]
 
     def __new__(cls) -> "EventBus":
         """Singleton pattern."""
         if cls._instance is None:
             cls._instance = super().__new__(cls)
-            cls._instance._handlers: dict[str, list[EventHandler]] = {}
+            cls._instance._handlers = {}
         return cls._instance
 
     @classmethod
@@ -87,7 +89,7 @@ class EventBus:
         """Reset singleton (útil para testes)."""
         cls._instance = None
 
-    def subscribe(self, event_type: type[E]) -> Callable[[EventHandler], EventHandler]:
+    def subscribe(self, event_type: type[E]) -> Callable[[Callable[[E], R]], Callable[[E], R]]:
         """
         Decorator para registrar handler de evento.
 
@@ -98,13 +100,14 @@ class EventBus:
             Decorator que registra o handler.
         """
 
-        def decorator(handler: EventHandler) -> EventHandler:
+        def decorator(handler: Callable[[E], R]) -> Callable[[E], R]:
             event_name = event_type.__name__
 
             if event_name not in self._handlers:
                 self._handlers[event_name] = []
 
-            self._handlers[event_name].append(handler)
+            # Events are routed by class name, so the handler only receives event_type.
+            self._handlers[event_name].append(cast(EventHandler, handler))
 
             logger.debug(
                 "event_handler_registered",
@@ -116,7 +119,7 @@ class EventBus:
 
         return decorator
 
-    def register(self, event_type: type[E], handler: EventHandler) -> None:
+    def register(self, event_type: type[E], handler: Callable[[E], Any]) -> None:
         """
         Registra handler programaticamente.
 
@@ -129,7 +132,8 @@ class EventBus:
         if event_name not in self._handlers:
             self._handlers[event_name] = []
 
-        self._handlers[event_name].append(handler)
+        # Events are routed by class name, so the handler only receives event_type.
+        self._handlers[event_name].append(cast(EventHandler, handler))
 
     async def publish(self, event: DomainEvent) -> list[Any]:
         """
