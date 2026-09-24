@@ -403,6 +403,6 @@ class TestSectionExtractionFullFlow:
                 entity_type_id=entity_type_id,
             )
 
-        assert result.run_id is not None
+        assert result.extraction_run_id == str(run_id)
         assert result.entity_type_id == str(entity_type_id)
         assert result.tokens_total == 150
