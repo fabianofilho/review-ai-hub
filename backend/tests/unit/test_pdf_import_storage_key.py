@@ -34,6 +34,8 @@ PROJECT_ID = str(uuid.uuid4())
 ARTICLE_ID = uuid.uuid4()
 OWN_KEY = f"temp/{USER_ID}/{uuid.uuid4()}/1700000000000.pdf"
 VICTIM_KEY = f"{uuid.uuid4()}/{uuid.uuid4()}/paper.pdf"
+# Passes a plain prefix check, but the storage client decodes it to VICTIM_KEY.
+ENCODED_TRAVERSAL_KEY = f"temp/{USER_ID}/%2e%2e/%2e%2e/{VICTIM_KEY}"
 
 
 class TestTempStorageKey:
@@ -56,6 +58,13 @@ class TestTempStorageKey:
             f"temp/{USER_ID}//1.pdf",
             f"temp/{USER_ID}/x\\..\\1.pdf",
             f"/temp/{USER_ID}/x/1.pdf",
+            # Percent-encoded traversal, decoded by the storage client.
+            ENCODED_TRAVERSAL_KEY,
+            f"temp/{USER_ID}/%2E%2E/%2E%2E/{VICTIM_KEY}",
+            f"temp/{USER_ID}/..%2f..%2f{VICTIM_KEY.replace('/', '%2f')}",
+            # Query and fragment markers cut the path the storage client requests.
+            f"temp/{USER_ID}/x?/../../{VICTIM_KEY}",
+            f"temp/{USER_ID}/x#/../../{VICTIM_KEY}",
             "",
         ],
     )
@@ -77,6 +86,9 @@ class TestSanitizeFilename:
             (None, DEFAULT_PDF_FILENAME),
             ("..", DEFAULT_PDF_FILENAME),
             ("folder/", DEFAULT_PDF_FILENAME),
+            ("..%2f..%2fvictim%2fpaper.pdf", ".._2f.._2fvictim_2fpaper.pdf"),
+            ("What is AI?.pdf", "What is AI_.pdf"),
+            ("paper#1.pdf", "paper_1.pdf"),
         ],
     )
     def test_sanitize(self, raw, expected):
@@ -146,7 +158,9 @@ def _create_body(storage_key: str) -> dict:
 
 class TestPdfImportEndpoints:
     @pytest.mark.asyncio
-    @pytest.mark.parametrize("key", [VICTIM_KEY, f"temp/{OTHER_USER_ID}/x/1.pdf"])
+    @pytest.mark.parametrize(
+        "key", [VICTIM_KEY, f"temp/{OTHER_USER_ID}/x/1.pdf", ENCODED_TRAVERSAL_KEY]
+    )
     async def test_create_article_rejects_foreign_storage_key(self, client, key):
         with (
             patch("app.api.v1.endpoints.article_import.ArticleImportService") as service_cls,
@@ -180,7 +194,8 @@ class TestPdfImportEndpoints:
         assert kwargs["storage_key"] == OWN_KEY
 
     @pytest.mark.asyncio
-    async def test_extract_metadata_rejects_foreign_storage_key(self, client):
+    @pytest.mark.parametrize("key", [VICTIM_KEY, ENCODED_TRAVERSAL_KEY])
+    async def test_extract_metadata_rejects_foreign_storage_key(self, client, key):
         with (
             patch("app.api.v1.endpoints.article_import.create_storage_adapter") as storage_factory,
             patch("app.api.v1.endpoints.article_import.APIKeyService") as api_key_service,
@@ -189,7 +204,7 @@ class TestPdfImportEndpoints:
                 "/api/v1/article-import/pdf-extract-metadata",
                 data={
                     "project_id": PROJECT_ID,
-                    "storage_key": VICTIM_KEY,
+                    "storage_key": key,
                     "original_filename": "paper.pdf",
                 },
             )
