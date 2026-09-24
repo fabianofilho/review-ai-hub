@@ -11,6 +11,7 @@ import uuid
 from fastapi import APIRouter, HTTPException, Request, UploadFile, File, Form, status
 
 from app.core.deps import CurrentUser, DbSession, SupabaseClient, ensure_project_member
+from app.core.error_handler import AuthorizationError
 from app.core.factories import create_storage_adapter
 from app.core.logging import get_logger
 from app.schemas.article_import import (
@@ -19,12 +20,29 @@ from app.schemas.article_import import (
 )
 from app.schemas.common import ApiResponse
 from app.services.api_key_service import APIKeyService
-from app.services.article_import_service import ArticleImportService
+from app.services.article_import_service import (
+    ArticleImportService,
+    is_user_temp_storage_key,
+    temp_upload_prefix,
+)
 from app.services.pdf_metadata_extraction_service import PDFMetadataExtractionService
 from app.utils.rate_limiter import limiter
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+
+def _ensure_user_temp_storage_key(storage_key: str, user_id: str) -> None:
+    """
+    Only accept PDFs from the caller's own temporary upload area.
+
+    Storage is read and moved with the service role, so any other key would
+    let the caller read or take over files of other projects.
+    """
+    if not is_user_temp_storage_key(storage_key, user_id):
+        raise AuthorizationError(
+            f"storage_key must be a temporary upload under '{temp_upload_prefix(user_id)}'."
+        )
 
 
 @router.post(
@@ -60,6 +78,7 @@ async def extract_pdf_metadata(
     )
 
     await ensure_project_member(db, project_id, user.sub)
+    _ensure_user_temp_storage_key(storage_key, user.sub)
 
     try:
         # Resolve BYOK
@@ -146,6 +165,7 @@ async def pdf_create_article(
     )
 
     await ensure_project_member(db, body.project_id, user.sub)
+    _ensure_user_temp_storage_key(body.storage_key, user.sub)
 
     try:
         storage = create_storage_adapter(supabase)
