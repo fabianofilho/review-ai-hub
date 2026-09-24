@@ -36,7 +36,7 @@ from app.repositories import (
     ExtractionInstanceRepository,
     ExtractionRunRepository,
 )
-from app.services.openai_service import OpenAIService, OpenAIResponse
+from app.services.openai_service import OpenAIResponse, OpenAIService
 from app.services.pdf_processor import PDFProcessor
 from app.utils.json_parser import parse_json_safe
 
@@ -71,12 +71,12 @@ class BatchExtractionResult:
 class SectionExtractionService(LoggerMixin):
     """
     Service para extração de seções de templates.
-    
+
     Suporta extração individual ou em batch com memória resumida.
     Migrado para usar SQLAlchemy via Repository Pattern.
     Suporta BYOK (Bring Your Own Key) com fallback para key global.
     """
-    
+
     def __init__(
         self,
         db: AsyncSession,
@@ -87,7 +87,7 @@ class SectionExtractionService(LoggerMixin):
     ):
         """
         Inicializa o service.
-        
+
         Args:
             db: Sessão async do SQLAlchemy.
             user_id: ID do usuário autenticado.
@@ -101,7 +101,7 @@ class SectionExtractionService(LoggerMixin):
         self.trace_id = trace_id
         self.pdf_processor = PDFProcessor()
         self.openai_service = OpenAIService(trace_id=trace_id, api_key=openai_api_key)
-        
+
         # Repositories
         self._articles = ArticleRepository(db)
         self._article_files = ArticleFileRepository(db)
@@ -109,7 +109,7 @@ class SectionExtractionService(LoggerMixin):
         self._instances = ExtractionInstanceRepository(db)
         self._suggestions = AISuggestionRepository(db)
         self._runs = ExtractionRunRepository(db)
-    
+
     async def extract_section(
         self,
         project_id: UUID,
@@ -121,7 +121,7 @@ class SectionExtractionService(LoggerMixin):
     ) -> SectionExtractionResult:
         """
         Extrai uma seção específica do template.
-        
+
         Args:
             project_id: ID do projeto.
             article_id: ID do artigo.
@@ -151,30 +151,30 @@ class SectionExtractionService(LoggerMixin):
                 "parent_instance_id": str(parent_instance_id) if parent_instance_id else None,
             },
         )
-        
+
         # Marcar como running
         await self._runs.start_run(run.id)
-        
+
         self.logger.info(
             "section_extraction_start",
             trace_id=self.trace_id,
             run_id=str(run.id),
             entity_type_id=str(entity_type_id),
         )
-        
+
         try:
             # 2. Buscar PDF
             pdf_data = await self._get_pdf(article_id)
-            
+
             # 3. Processar texto
             pdf_text = await self.pdf_processor.extract_text(pdf_data)
-            
+
             # 4. Buscar entity type e seus fields
             entity_type = await self._get_entity_type(entity_type_id)
-            
+
             # 5. Construir schema para extração
             extraction_schema = self._build_extraction_schema(entity_type)
-            
+
             # 6. Executar extração com LLM (com tracking de tokens)
             extracted_data, llm_response = await self._extract_with_llm(
                 pdf_text=pdf_text,
@@ -182,7 +182,7 @@ class SectionExtractionService(LoggerMixin):
                 schema=extraction_schema,
                 model=model,
             )
-            
+
             # 7. Criar sugestões no banco
             suggestions_created = await self._create_suggestions(
                 project_id=project_id,
@@ -192,9 +192,9 @@ class SectionExtractionService(LoggerMixin):
                 extracted_data=extracted_data,
                 run=run,
             )
-            
+
             duration = (time.time() - start_time) * 1000
-            
+
             # 8. Completar run com resultados
             await self._runs.complete_run(
                 run_id=run.id,
@@ -207,7 +207,7 @@ class SectionExtractionService(LoggerMixin):
                     "fields_extracted": len(extracted_data) if extracted_data else 0,
                 },
             )
-            
+
             self.logger.info(
                 "section_extraction_complete",
                 trace_id=self.trace_id,
@@ -216,7 +216,7 @@ class SectionExtractionService(LoggerMixin):
                 tokens_total=llm_response.usage.total_tokens,
                 duration_ms=duration,
             )
-            
+
             return SectionExtractionResult(
                 extraction_run_id=str(run.id),
                 entity_type_id=str(entity_type_id),
@@ -226,7 +226,7 @@ class SectionExtractionService(LoggerMixin):
                 tokens_total=llm_response.usage.total_tokens,
                 duration_ms=duration,
             )
-            
+
         except Exception as e:
             # Marcar run como falha
             await self._runs.fail_run(run.id, str(e))
@@ -237,7 +237,7 @@ class SectionExtractionService(LoggerMixin):
                 error=str(e),
             )
             raise
-    
+
     async def extract_all_sections(
         self,
         project_id: UUID,
@@ -250,12 +250,12 @@ class SectionExtractionService(LoggerMixin):
     ) -> BatchExtractionResult:
         """
         Extrai todas as seções filhas de um modelo com memória resumida.
-        
+
         Implementa extração sequencial com contexto acumulado:
         - Processa PDF uma única vez
         - Mantém histórico resumido de extrações anteriores
         - Enriquece prompts com contexto das seções já extraídas
-        
+
         Args:
             project_id: ID do projeto.
             article_id: ID do artigo.
@@ -264,7 +264,7 @@ class SectionExtractionService(LoggerMixin):
             section_ids: IDs específicos a extrair (opcional).
             pdf_text: Texto do PDF pré-processado (opcional).
             model: Modelo OpenAI.
-            
+
         Returns:
             BatchExtractionResult com estatísticas da extração.
         """
@@ -287,21 +287,21 @@ class SectionExtractionService(LoggerMixin):
                 "section_ids": [str(sid) for sid in section_ids] if section_ids else None,
             },
         )
-        
+
         await self._runs.start_run(run.id)
-        
+
         self.logger.info(
             "batch_extraction_start",
             trace_id=self.trace_id,
             run_id=str(run.id),
             parent_instance_id=str(parent_instance_id),
         )
-        
+
         # Histórico de memória resumida para contexto
         memory_history: list[dict[str, str]] = []
         section_results: list[dict[str, Any]] = []
         total_tokens = 0
-        
+
         try:
             # 1. Fetch/process PDF (once)
             if not pdf_text:
@@ -314,7 +314,7 @@ class SectionExtractionService(LoggerMixin):
                 parent_instance_id=parent_instance_id,
                 section_ids=section_ids,
             )
-            
+
             total_sections = len(child_types)
             successful = 0
             failed = 0
@@ -333,26 +333,30 @@ class SectionExtractionService(LoggerMixin):
                         memory_history=memory_history,
                         model=model,
                     )
-                    
+
                     successful += 1
                     total_suggestions += result["suggestions_created"]
                     total_tokens += result["tokens_total"]
-                    
+
                     # Adicionar resumo ao histórico de memória
                     if result.get("summary"):
-                        memory_history.append({
-                            "entity_type_name": entity_type.label or entity_type.name,
-                            "summary": result["summary"],
-                        })
-                    
-                    section_results.append({
-                        "entity_type_id": str(entity_type.id),
-                        "entity_type_name": entity_type.name,
-                        "success": True,
-                        "suggestions_created": result["suggestions_created"],
-                        "tokens_used": result["tokens_total"],
-                    })
-                    
+                        memory_history.append(
+                            {
+                                "entity_type_name": entity_type.label or entity_type.name,
+                                "summary": result["summary"],
+                            }
+                        )
+
+                    section_results.append(
+                        {
+                            "entity_type_id": str(entity_type.id),
+                            "entity_type_name": entity_type.name,
+                            "success": True,
+                            "suggestions_created": result["suggestions_created"],
+                            "tokens_used": result["tokens_total"],
+                        }
+                    )
+
                 except Exception as e:
                     failed += 1
                     self.logger.error(
@@ -361,15 +365,17 @@ class SectionExtractionService(LoggerMixin):
                         entity_type_id=str(entity_type.id),
                         error=str(e),
                     )
-                    section_results.append({
-                        "entity_type_id": str(entity_type.id),
-                        "entity_type_name": entity_type.name,
-                        "success": False,
-                        "error": str(e),
-                    })
-            
+                    section_results.append(
+                        {
+                            "entity_type_id": str(entity_type.id),
+                            "entity_type_name": entity_type.name,
+                            "success": False,
+                            "error": str(e),
+                        }
+                    )
+
             duration = (time.time() - start_time) * 1000
-            
+
             # 4. Completar run principal
             await self._runs.complete_run(
                 run_id=run.id,
@@ -382,7 +388,7 @@ class SectionExtractionService(LoggerMixin):
                     "duration_ms": duration,
                 },
             )
-            
+
             self.logger.info(
                 "batch_extraction_complete",
                 trace_id=self.trace_id,
@@ -393,7 +399,7 @@ class SectionExtractionService(LoggerMixin):
                 tokens_total=total_tokens,
                 duration_ms=duration,
             )
-            
+
             return BatchExtractionResult(
                 extraction_run_id=str(run.id),
                 total_sections=total_sections,
@@ -404,11 +410,11 @@ class SectionExtractionService(LoggerMixin):
                 duration_ms=duration,
                 sections=section_results,
             )
-            
+
         except Exception as e:
             await self._runs.fail_run(run.id, str(e))
             raise
-    
+
     async def _extract_section_with_memory(
         self,
         project_id: UUID,
@@ -422,7 +428,7 @@ class SectionExtractionService(LoggerMixin):
     ) -> dict[str, Any]:
         """
         Extrai uma seção com contexto de memória resumida.
-        
+
         Args:
             project_id: ID do projeto.
             article_id: ID do artigo.
@@ -432,7 +438,7 @@ class SectionExtractionService(LoggerMixin):
             pdf_text: Texto do PDF.
             memory_history: Histórico de memória resumida.
             model: Modelo OpenAI.
-            
+
         Returns:
             Dict com suggestions_created, tokens_total e summary.
         """
@@ -451,13 +457,13 @@ class SectionExtractionService(LoggerMixin):
                 "memory_context_size": len(memory_history),
             },
         )
-        
+
         await self._runs.start_run(run.id)
-        
+
         try:
             # Construir schema
             extraction_schema = self._build_extraction_schema(entity_type)
-            
+
             # Executar extração com contexto de memória
             extracted_data, llm_response = await self._extract_with_llm(
                 pdf_text=pdf_text,
@@ -466,7 +472,7 @@ class SectionExtractionService(LoggerMixin):
                 model=model,
                 memory_context=memory_history,
             )
-            
+
             # Criar sugestões
             suggestions_created = await self._create_suggestions(
                 project_id=project_id,
@@ -476,10 +482,10 @@ class SectionExtractionService(LoggerMixin):
                 extracted_data=extracted_data,
                 run=run,
             )
-            
+
             # Gerar resumo para memória (máx 200 chars)
             summary = self._generate_extraction_summary(entity_type, extracted_data)
-            
+
             # Completar run
             await self._runs.complete_run(
                 run_id=run.id,
@@ -491,17 +497,17 @@ class SectionExtractionService(LoggerMixin):
                     "summary": summary,
                 },
             )
-            
+
             return {
                 "suggestions_created": suggestions_created,
                 "tokens_total": llm_response.usage.total_tokens,
                 "summary": summary,
             }
-            
+
         except Exception as e:
             await self._runs.fail_run(run.id, str(e))
             raise
-    
+
     def _generate_extraction_summary(
         self,
         entity_type: Any,
@@ -509,66 +515,66 @@ class SectionExtractionService(LoggerMixin):
     ) -> str:
         """
         Gera resumo estruturado de uma extração (máx 200 chars).
-        
+
         Usado para enriquecer o contexto de memória em extrações subsequentes.
-        
+
         Args:
             entity_type: Entity type extraído.
             extracted_data: Dados extraídos.
-            
+
         Returns:
             Resumo estruturado (máx 200 chars).
         """
         MAX_SUMMARY_LENGTH = 200
-        
+
         if not extracted_data:
             return f"{entity_type.label or entity_type.name}: No data extracted"
-        
+
         # Extrair primeiros 3 campos com valores
         entries = list(extracted_data.items())[:3]
         key_fields = []
-        
+
         for field_name, value in entries:
             if value is None:
                 continue
-            
+
             # Extrair valor (pode ser objeto enriquecido ou valor direto)
             if isinstance(value, dict) and "value" in value:
                 field_value = str(value["value"])[:50]
             else:
                 field_value = str(value)[:50]
-            
+
             key_fields.append(f"{field_name}: {field_value}")
-        
+
         fields_str = ", ".join(key_fields)
         more_indicator = "..." if len(extracted_data) > 3 else ""
-        
+
         summary = f"{entity_type.label or entity_type.name}: {fields_str}{more_indicator}"
-        
+
         # Truncar se exceder limite
         if len(summary) > MAX_SUMMARY_LENGTH:
-            return summary[:MAX_SUMMARY_LENGTH - 3] + "..."
-        
+            return summary[: MAX_SUMMARY_LENGTH - 3] + "..."
+
         return summary
-    
+
     async def _get_pdf(self, article_id: UUID) -> bytes:
         """Busca e faz download do PDF via Storage Adapter."""
         pdf_file = await self._article_files.get_latest_pdf(article_id)
-        
+
         if not pdf_file:
             raise FileNotFoundError(f"PDF not found for article {article_id}")
-        
+
         return await self.storage.download("articles", pdf_file.storage_key)
-    
+
     async def _get_entity_type(self, entity_type_id: UUID) -> Any:
         """Busca entity type com seus fields."""
         entity_type = await self._entity_types.get_with_fields(entity_type_id)
-        
+
         if not entity_type:
             raise ValueError(f"Entity type not found: {entity_type_id}")
-        
+
         return entity_type
-    
+
     async def _get_child_entity_types(
         self,
         template_id: UUID,
@@ -584,7 +590,7 @@ class SectionExtractionService(LoggerMixin):
         """
         # 1. Fetch parent instance to get its entity_type_id
         parent_instance = await self._instances.get_by_id(parent_instance_id)
-        
+
         if not parent_instance:
             self.logger.warning(
                 "parent_instance_not_found",
@@ -592,7 +598,7 @@ class SectionExtractionService(LoggerMixin):
                 parent_instance_id=str(parent_instance_id),
             )
             return []
-        
+
         parent_entity_type_id = str(parent_instance.entity_type_id)
 
         # 2. Fetch child entity types of this parent_entity_type
@@ -600,7 +606,7 @@ class SectionExtractionService(LoggerMixin):
             parent_entity_type_id=parent_entity_type_id,
             cardinality=None,  # Fetch all, not just 'one'
         )
-        
+
         if not child_entity_types:
             self.logger.info(
                 "no_child_entity_types_found",
@@ -608,41 +614,38 @@ class SectionExtractionService(LoggerMixin):
                 parent_entity_type_id=parent_entity_type_id,
             )
             return []
-        
+
         # 3. Filtrar por section_ids se fornecido
         if section_ids:
-            child_entity_types = [
-                et for et in child_entity_types
-                if et.id in section_ids
-            ]
-        
+            child_entity_types = [et for et in child_entity_types if et.id in section_ids]
+
         self.logger.info(
             "child_entity_types_found",
             trace_id=self.trace_id,
             count=len(child_entity_types),
             parent_entity_type_id=parent_entity_type_id,
         )
-        
+
         return child_entity_types
-    
+
     def _build_extraction_schema(self, entity_type: Any) -> dict[str, Any]:
         """
         Constrói schema JSON para extração baseado nos fields.
-        
+
         Inclui:
         - Tipos de campo (string, number, boolean, array)
         - allowed_values para campos select/enum
         - llm_description para melhor contexto
         """
-        fields = entity_type.fields if hasattr(entity_type, 'fields') else []
-        
+        fields = entity_type.fields if hasattr(entity_type, "fields") else []
+
         properties = {}
         required = []
-        
+
         for field in fields:
-            field_name = field.name if hasattr(field, 'name') else ""
-            field_type = field.field_type if hasattr(field, 'field_type') else "text"
-            
+            field_name = field.name if hasattr(field, "name") else ""
+            field_type = field.field_type if hasattr(field, "field_type") else "text"
+
             # Mapear tipos
             json_type = "string"
             if field_type in ("number", "integer", "float"):
@@ -651,7 +654,7 @@ class SectionExtractionService(LoggerMixin):
                 json_type = "boolean"
             elif field_type in ("array", "list", "multiselect"):
                 json_type = "array"
-            
+
             # Usar llm_description se disponível, senão usar description.
             # IMPORTANTE: garantir que description seja sempre JSON-serializável.
             # Em testes (ou em runtime), alguns objetos podem expor atributos como MagicMock
@@ -663,14 +666,14 @@ class SectionExtractionService(LoggerMixin):
                 raw_description = field.description
 
             description = "" if raw_description is None else str(raw_description)
-            
+
             field_schema: dict[str, Any] = {
                 "type": json_type,
                 "description": description,
             }
-            
+
             # Incluir allowed_values como enum se disponível (para campos select/dropdown)
-            if hasattr(field, 'allowed_values') and field.allowed_values:
+            if hasattr(field, "allowed_values") and field.allowed_values:
                 allowed = field.allowed_values
                 # allowed_values pode ser: {"options": [...]} ou diretamente [...]
                 if isinstance(allowed, dict) and "options" in allowed:
@@ -679,7 +682,7 @@ class SectionExtractionService(LoggerMixin):
                     options = allowed
                 else:
                     options = None
-                
+
                 if options:
                     # Extrair apenas os valores das opções
                     enum_values = []
@@ -688,24 +691,24 @@ class SectionExtractionService(LoggerMixin):
                             enum_values.append(opt["value"])
                         elif isinstance(opt, str):
                             enum_values.append(opt)
-                    
+
                     if enum_values:
                         field_schema["enum"] = enum_values
                         # Adicionar informação no description sobre as opções
                         options_str = ", ".join(f'"{v}"' for v in enum_values)
                         field_schema["description"] += f" Must be one of: {options_str}"
-            
+
             properties[field_name] = field_schema
-            
-            if hasattr(field, 'is_required') and field.is_required:
+
+            if hasattr(field, "is_required") and field.is_required:
                 required.append(field_name)
-        
+
         return {
             "type": "object",
             "properties": properties,
             "required": required,
         }
-    
+
     async def _extract_with_llm(
         self,
         pdf_text: str,
@@ -716,20 +719,20 @@ class SectionExtractionService(LoggerMixin):
     ) -> tuple[dict[str, Any], OpenAIResponse]:
         """
         Executa extração usando LLM com tracking de tokens.
-        
+
         Args:
             pdf_text: Texto do PDF.
             entity_type: Entity type a extrair.
             schema: Schema JSON para extração.
             model: Modelo OpenAI.
             memory_context: Contexto de memória resumida (opcional).
-            
+
         Returns:
             Tuple com dados extraídos e resposta OpenAI com tokens.
         """
-        entity_name = entity_type.name if hasattr(entity_type, 'name') else "data"
-        entity_description = entity_type.description if hasattr(entity_type, 'description') else ""
-        
+        entity_name = entity_type.name if hasattr(entity_type, "name") else "data"
+        entity_description = entity_type.description if hasattr(entity_type, "description") else ""
+
         # Construir contexto de memória se disponível
         memory_section = ""
         if memory_context:
@@ -743,7 +746,7 @@ class SectionExtractionService(LoggerMixin):
 
 Use this context to maintain consistency and avoid contradictions with previously extracted data.
 """
-        
+
         prompt = f"""Extract the following information from the scientific article:
 
 Section: {entity_name}
@@ -771,7 +774,7 @@ Example response format:
   }}
 }}
 """
-        
+
         # Usar chat_completion_full para obter tokens
         response = await self.openai_service.chat_completion_full(
             messages=[
@@ -784,12 +787,12 @@ Example response format:
             model=model,
             response_format={"type": "json_object"},
         )
-        
+
         # Usa parser robusto com fallback para dict vazio
         extracted_data = parse_json_safe(response.content, trace_id=self.trace_id, default={})
-        
+
         return extracted_data, response
-    
+
     async def _create_suggestions(
         self,
         project_id: UUID,
@@ -804,7 +807,7 @@ Example response format:
 
         Cria automaticamente uma instância se não existir.
         Vincula sugestões ao extraction_run_id para rastreabilidade.
-        
+
         Args:
             project_id: ID do projeto.
             article_id: ID do artigo.
@@ -812,12 +815,12 @@ Example response format:
             parent_instance_id: ID da instância pai.
             extracted_data: Dados extraídos.
             run: ExtractionRun para vincular as sugestões.
-            
+
         Returns:
             Número de sugestões criadas.
         """
         count = 0
-        
+
         if not extracted_data:
             self.logger.info(
                 "no_data_to_create_suggestions",
@@ -825,7 +828,7 @@ Example response format:
                 entity_type_id=str(entity_type_id),
             )
             return 0
-        
+
         # Buscar entity type para obter fields
         entity_type = await self._entity_types.get_with_fields(entity_type_id)
         if not entity_type:
@@ -835,22 +838,21 @@ Example response format:
                 entity_type_id=str(entity_type_id),
             )
             return 0
-        
+
         # Criar mapa de field_name → field_id
         field_map: dict[str, UUID] = {}
-        for field in (entity_type.fields or []):
+        for field in entity_type.fields or []:
             field_map[field.name] = field.id
-        
+
         # Buscar instância existente
         instances = await self._instances.get_by_article(article_id, entity_type_id)
-        
+
         # Se temos parent_instance_id, filtra também por ele
         if instances and parent_instance_id:
             instances = [
-                inst for inst in instances
-                if inst.parent_instance_id == parent_instance_id
+                inst for inst in instances if inst.parent_instance_id == parent_instance_id
             ]
-        
+
         if instances:
             instance = instances[0]
             self.logger.debug(
@@ -866,15 +868,15 @@ Example response format:
                 parent_instance = await self._instances.get_by_id(parent_instance_id)
                 if parent_instance:
                     template_id = parent_instance.template_id
-            
+
             new_instance = ExtractionInstance(
                 project_id=project_id,
                 article_id=article_id,
                 template_id=template_id or run.template_id,
                 entity_type_id=entity_type_id,
                 parent_instance_id=parent_instance_id,
-                label=entity_type.label if hasattr(entity_type, 'label') else entity_type.name,
-                sort_order=entity_type.sort_order if hasattr(entity_type, 'sort_order') else 0,
+                label=entity_type.label if hasattr(entity_type, "label") else entity_type.name,
+                sort_order=entity_type.sort_order if hasattr(entity_type, "sort_order") else 0,
                 metadata_={
                     "ai_created": True,
                     "ai_run_id": str(run.id),
@@ -882,21 +884,21 @@ Example response format:
                 created_by=UUID(self.user_id),
                 status=ExtractionInstanceStatus.PENDING.value,
             )
-            
+
             instance = await self._instances.create(new_instance)
-            
+
             self.logger.info(
                 "instance_auto_created",
                 trace_id=self.trace_id,
                 instance_id=str(instance.id),
                 entity_type_id=str(entity_type_id),
             )
-        
+
         # Criar sugestões para cada campo extraído
         for field_name, value in extracted_data.items():
             if value is None:
                 continue
-            
+
             # Buscar field_id correspondente
             field_id = field_map.get(field_name)
             if not field_id:
@@ -907,7 +909,7 @@ Example response format:
                     available_fields=list(field_map.keys()),
                 )
                 continue
-            
+
             # Extrair confidence, reasoning e evidence se o valor for um objeto enriquecido
             confidence_score = None
             reasoning = None
@@ -921,13 +923,19 @@ Example response format:
                 if isinstance(raw_evidence, dict) and raw_evidence.get("text"):
                     evidence_meta = {
                         "text": str(raw_evidence["text"]).strip(),
-                        "page_number": raw_evidence.get("page_number") if raw_evidence.get("page_number") is not None else None,
+                        "page_number": raw_evidence.get("page_number")
+                        if raw_evidence.get("page_number") is not None
+                        else None,
                     }
 
                 # O suggested_value deve conter apenas o valor real
                 if "value" in value:
                     actual_value = value["value"]
-                    suggested_value = {"value": actual_value} if not isinstance(actual_value, (dict, list)) else actual_value
+                    suggested_value = (
+                        {"value": actual_value}
+                        if not isinstance(actual_value, (dict, list))
+                        else actual_value
+                    )
                 else:
                     # Caso não tenha "value", usar o dict inteiro
                     suggested_value = value
@@ -954,10 +962,10 @@ Example response format:
                 status="pending",
                 metadata_=metadata_,
             )
-            
+
             await self._suggestions.create(suggestion)
             count += 1
-        
+
         self.logger.info(
             "suggestions_created",
             trace_id=self.trace_id,
@@ -965,5 +973,5 @@ Example response format:
             instance_id=str(instance.id),
             run_id=str(run.id),
         )
-        
+
         return count

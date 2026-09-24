@@ -26,7 +26,6 @@ from app.models.assessment import AIAssessmentRun
 from app.models.extraction import AISuggestion, ExtractionRun
 from app.models.screening import ScreeningRun
 from app.repositories.extraction_repository import AISuggestionRepository
-from app.services.api_key_service import APIKeyService
 from app.schemas.assessment import (
     AIAssessmentRequest,
     AIAssessmentResponseData,
@@ -39,6 +38,7 @@ from app.schemas.assessment import (
 )
 from app.schemas.common import ApiResponse
 from app.services.ai_assessment_service import AIAssessmentService
+from app.services.api_key_service import APIKeyService
 from app.utils.rate_limiter import limiter
 
 router = APIRouter()
@@ -80,18 +80,18 @@ async def ai_assessment(
 ) -> ApiResponse:
     """
     Executa avaliação AI de um item de assessment.
-    
+
     Rate limit: 10 requisições por minuto por usuário.
-    
+
     Args:
         request: Request HTTP (usado pelo rate limiter).
         payload: Dados do assessment a avaliar.
-        
+
     Returns:
         ApiResponse com resultado da avaliação.
     """
     trace_id = str(uuid.uuid4())
-    
+
     logger.info(
         "ai_assessment_request",
         trace_id=trace_id,
@@ -132,10 +132,10 @@ async def ai_assessment(
             model=payload.model or "gpt-4o-mini",
             extraction_instance_id=payload.extraction_instance_id,  # For PROBAST by model
         )
-        
+
         # Commit explícito para persistir os resultados
         await db.commit()
-        
+
         logger.info(
             "ai_assessment_success",
             trace_id=trace_id,
@@ -144,7 +144,7 @@ async def ai_assessment(
             tokens_total=result.tokens_prompt + result.tokens_completion,
             method_used=result.method_used,
         )
-        
+
         # Formatar resposta no formato camelCase para o frontend
         response_data = AIAssessmentResponseData(
             id=result.assessment_id,
@@ -160,9 +160,9 @@ async def ai_assessment(
                 "methodUsed": result.method_used,
             },
         ).model_dump(by_alias=True)
-        
+
         return ApiResponse(ok=True, data=response_data, trace_id=trace_id)
-        
+
     except ValueError as e:
         await db.rollback()
         logger.warning(
@@ -204,18 +204,18 @@ async def ai_assessment_batch(
 ) -> ApiResponse:
     """
     Executa avaliação AI em batch para múltiplos itens.
-    
+
     Rate limit: 5 requisições por minuto por usuário.
-    
+
     Args:
         request: Request HTTP (usado pelo rate limiter).
         payload: Dados dos itens a avaliar.
-        
+
     Returns:
         ApiResponse com lista de resultados.
     """
     trace_id = str(uuid.uuid4())
-    
+
     logger.info(
         "ai_assessment_batch_request",
         trace_id=trace_id,
@@ -250,12 +250,12 @@ async def ai_assessment_batch(
             model=payload.model or "gpt-4o-mini",
             extraction_instance_id=payload.extraction_instance_id,  # For PROBAST by model
         )
-        
+
         await db.commit()
-        
+
         # Formatar respostas
         formatted_results = [service.to_dict(r) for r in results]
-        
+
         logger.info(
             "ai_assessment_batch_success",
             trace_id=trace_id,
@@ -263,7 +263,7 @@ async def ai_assessment_batch(
             total_items=len(payload.item_ids),
             successful_items=len(results),
         )
-        
+
         response_data = BatchAIAssessmentResponseData(
             results=formatted_results,
             total_items=len(payload.item_ids),
@@ -271,7 +271,7 @@ async def ai_assessment_batch(
         ).model_dump(by_alias=True)
 
         return ApiResponse(ok=True, data=response_data, trace_id=trace_id)
-        
+
     except Exception as e:
         await db.rollback()
         logger.error(
@@ -320,10 +320,10 @@ async def list_ai_suggestions(
     trace_id = str(uuid.uuid4())
 
     try:
-        from app.repositories.extraction_repository import AISuggestionRepository
         from sqlalchemy import and_, or_, select
-        from app.models.extraction import AISuggestion
+
         from app.models.assessment import AIAssessmentRun
+        from app.models.extraction import AISuggestion
 
         # Build query - include both global and project-scoped assessment suggestions
         query = select(AISuggestion).where(
@@ -335,8 +335,7 @@ async def list_ai_suggestions(
 
         # Join with runs to filter by project/article
         query = query.join(
-            AIAssessmentRun,
-            AISuggestion.assessment_run_id == AIAssessmentRun.id
+            AIAssessmentRun, AISuggestion.assessment_run_id == AIAssessmentRun.id
         ).where(
             and_(
                 AIAssessmentRun.project_id == uuid.UUID(project_id),
@@ -362,8 +361,7 @@ async def list_ai_suggestions(
 
         # Format response
         suggestions_data = [
-            AISuggestionSchema.model_validate(s).model_dump(by_alias=True)
-            for s in suggestions
+            AISuggestionSchema.model_validate(s).model_dump(by_alias=True) for s in suggestions
         ]
 
         response_data = ListSuggestionsResponse(
@@ -430,8 +428,8 @@ async def review_ai_suggestion(
         await _ensure_suggestion_access(db, existing, user.sub)
 
     try:
-        from app.repositories.assessment_repository import AIAssessmentRepository
         from app.models.assessment import AIAssessment
+        from app.repositories.assessment_repository import AIAssessmentRepository
 
         suggestion_repo = AISuggestionRepository(db)
         assessment_repo = AIAssessmentRepository(db)

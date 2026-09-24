@@ -11,7 +11,6 @@ Implements:
 - Repository Pattern with SQLAlchemy
 """
 
-import json
 import time
 from dataclasses import dataclass
 from typing import Any
@@ -87,7 +86,7 @@ class ModelExtractionService(LoggerMixin):
         self.trace_id = trace_id
         self.pdf_processor = PDFProcessor()
         self.openai_service = OpenAIService(trace_id=trace_id, api_key=openai_api_key)
-        
+
         # Repositories
         self._articles = ArticleRepository(db)
         self._article_files = ArticleFileRepository(db)
@@ -96,7 +95,7 @@ class ModelExtractionService(LoggerMixin):
         self._entity_types = ExtractionEntityTypeRepository(db)
         self._instances = ExtractionInstanceRepository(db)
         self._runs = ExtractionRunRepository(db)
-    
+
     async def extract(
         self,
         project_id: UUID,
@@ -133,26 +132,26 @@ class ModelExtractionService(LoggerMixin):
                 "extraction_type": "model_identification",
             },
         )
-        
+
         await self._runs.start_run(run.id)
-        
+
         self.logger.info(
             "model_extraction_start",
             trace_id=self.trace_id,
             run_id=str(run.id),
             article_id=str(article_id),
         )
-        
+
         try:
             # 2. Fetch PDF
             pdf_data = await self._get_pdf(article_id)
-            
+
             # 3. Processar texto do PDF
             pdf_text = await self.pdf_processor.extract_text(pdf_data)
 
             # 4. Fetch template and entity types
             template = await self._get_template(template_id)
-            
+
             # 5. Identificar modelos usando LLM (com tracking de tokens)
             models, llm_response = await self._identify_models(pdf_text, template, model)
 
@@ -164,9 +163,9 @@ class ModelExtractionService(LoggerMixin):
                 models=models,
                 run=run,
             )
-            
+
             duration = (time.time() - start_time) * 1000
-            
+
             # 7. Completar run com resultados
             await self._runs.complete_run(
                 run_id=run.id,
@@ -180,7 +179,7 @@ class ModelExtractionService(LoggerMixin):
                     "duration_ms": duration,
                 },
             )
-            
+
             self.logger.info(
                 "model_extraction_complete",
                 trace_id=self.trace_id,
@@ -190,7 +189,7 @@ class ModelExtractionService(LoggerMixin):
                 tokens_total=llm_response.usage.total_tokens,
                 duration_ms=duration,
             )
-            
+
             # Formatar modelos criados no formato esperado pelo frontend (camelCase)
             formatted_models = [
                 {
@@ -200,7 +199,7 @@ class ModelExtractionService(LoggerMixin):
                 }
                 for model_instance in created_models
             ]
-            
+
             return ModelExtractionResult(
                 extraction_run_id=str(run.id),
                 models_created=formatted_models,
@@ -211,7 +210,7 @@ class ModelExtractionService(LoggerMixin):
                 tokens_total=llm_response.usage.total_tokens,
                 duration_ms=duration,
             )
-            
+
         except Exception as e:
             await self._runs.fail_run(run.id, str(e))
             self.logger.error(
@@ -221,16 +220,16 @@ class ModelExtractionService(LoggerMixin):
                 error=str(e),
             )
             raise
-    
+
     async def _get_pdf(self, article_id: UUID) -> bytes:
         """Fetch and download article PDF via Storage Adapter."""
         pdf_file = await self._article_files.get_latest_pdf(article_id)
-        
+
         if not pdf_file:
             raise FileNotFoundError(f"PDF not found for article {article_id}")
-        
+
         return await self.storage.download("articles", pdf_file.storage_key)
-    
+
     async def _get_template(self, template_id: UUID) -> Any:
         """
         Fetch template with entity types.
@@ -246,12 +245,12 @@ class ModelExtractionService(LoggerMixin):
 
         # If not found, try global template
         template = await self._global_templates.get_by_id(template_id)
-        
+
         if template:
             return template
-        
+
         raise ValueError(f"Template not found: {template_id}")
-    
+
     async def _identify_models(
         self,
         pdf_text: str,
@@ -270,13 +269,16 @@ class ModelExtractionService(LoggerMixin):
             Tuple of model list and OpenAI response.
         """
         # Find entity type "prediction_models" or "model" in template
-        entity_types = template.entity_types if hasattr(template, 'entity_types') else []
+        entity_types = template.entity_types if hasattr(template, "entity_types") else []
         model_entity = next(
-            (et for et in entity_types 
-             if et.name.lower() in ("prediction_models", "model", "models")),
+            (
+                et
+                for et in entity_types
+                if et.name.lower() in ("prediction_models", "model", "models")
+            ),
             None,
         )
-        
+
         if not model_entity:
             self.logger.warning(
                 "no_model_entity_type",
@@ -284,7 +286,7 @@ class ModelExtractionService(LoggerMixin):
                 template_id=str(template.id),
                 available_entity_types=[et.name for et in entity_types] if entity_types else [],
             )
-        
+
         # Prompt ajustado para retornar objeto JSON (required por response_format)
         prompt = f"""Analyze the following scientific article text and identify all prediction models described.
 
@@ -302,7 +304,7 @@ Example format:
 
 If no models are found, return: {{"models": []}}
 """
-        
+
         # Usar chat_completion_full para obter tokens
         response = await self.openai_service.chat_completion_full(
             messages=[
@@ -318,16 +320,16 @@ If no models are found, return: {{"models": []}}
 
         # Use robust parser that handles multiple formats
         models = extract_models_from_response(response.content, trace_id=self.trace_id)
-        
+
         self.logger.info(
             "models_identified",
             trace_id=self.trace_id,
             models_count=len(models),
             tokens_total=response.usage.total_tokens,
         )
-        
+
         return models, response
-    
+
     async def _get_prediction_models_entity_type_id(
         self,
         template_id: UUID,
@@ -342,7 +344,7 @@ If no models are found, return: {{"models": []}}
         entity_type = await self._entity_types.get_by_name(
             "prediction_models", template_id, is_project_template=True
         )
-        
+
         if entity_type:
             return str(entity_type.id)
 
@@ -350,12 +352,12 @@ If no models are found, return: {{"models": []}}
         entity_type = await self._entity_types.get_by_name(
             "prediction_models", template_id, is_project_template=False
         )
-        
+
         if entity_type:
             return str(entity_type.id)
-        
+
         return None
-    
+
     async def _get_child_entity_types(
         self,
         parent_entity_type_id: str,
@@ -370,7 +372,7 @@ If no models are found, return: {{"models": []}}
             parent_entity_type_id,
             cardinality="one",
         )
-    
+
     async def _create_child_instances(
         self,
         parent_instance_id: str,
@@ -389,12 +391,10 @@ If no models are found, return: {{"models": []}}
         Returns:
             Number of child instances created.
         """
-        child_entity_types = await self._get_child_entity_types(
-            parent_entity_type_id, template_id
-        )
-        
+        child_entity_types = await self._get_child_entity_types(parent_entity_type_id, template_id)
+
         created_count = 0
-        
+
         for child_et in child_entity_types:
             child_instance = ExtractionInstance(
                 project_id=project_id,
@@ -412,11 +412,11 @@ If no models are found, return: {{"models": []}}
                 created_by=UUID(self.user_id),
                 status=ExtractionInstanceStatus.PENDING.value,
             )
-            
+
             try:
                 await self._instances.create(child_instance)
                 created_count += 1
-                
+
                 self.logger.debug(
                     "child_instance_created",
                     trace_id=self.trace_id,
@@ -432,9 +432,9 @@ If no models are found, return: {{"models": []}}
                     error=str(e),
                     entity_type=child_et.name,
                 )
-        
+
         return created_count
-    
+
     async def _create_model_instances(
         self,
         project_id: UUID,
@@ -455,7 +455,7 @@ If no models are found, return: {{"models": []}}
         """
         # Fetch entity_type_id for 'prediction_models'
         entity_type_id = await self._get_prediction_models_entity_type_id(template_id)
-        
+
         if not entity_type_id:
             self.logger.warning(
                 "no_prediction_models_entity_type",
@@ -463,10 +463,10 @@ If no models are found, return: {{"models": []}}
                 template_id=str(template_id),
             )
             return [], 0
-        
+
         created: list[ExtractionInstance] = []
         total_children_created = 0
-        
+
         for idx, model_data in enumerate(models):
             # 1. Criar instância do modelo (parent)
             model_instance = ExtractionInstance(
@@ -486,18 +486,18 @@ If no models are found, return: {{"models": []}}
                 created_by=UUID(self.user_id),
                 status=ExtractionInstanceStatus.PENDING.value,
             )
-            
+
             try:
                 saved_instance = await self._instances.create(model_instance)
                 created.append(saved_instance)
-                
+
                 self.logger.info(
                     "model_instance_created",
                     trace_id=self.trace_id,
                     instance_id=str(saved_instance.id),
                     label=model_instance.label,
                 )
-                
+
                 # 2. Criar child instances para este modelo
                 children_count = await self._create_child_instances(
                     parent_instance_id=str(saved_instance.id),
@@ -507,16 +507,16 @@ If no models are found, return: {{"models": []}}
                     template_id=template_id,
                     run_id=run.id,
                 )
-                
+
                 total_children_created += children_count
-                
+
                 self.logger.info(
                     "model_hierarchy_created",
                     trace_id=self.trace_id,
                     model_id=str(saved_instance.id),
                     children_created=children_count,
                 )
-                
+
             except Exception as e:
                 self.logger.error(
                     "model_instance_creation_failed",
@@ -524,20 +524,20 @@ If no models are found, return: {{"models": []}}
                     error=str(e),
                     model_name=model_data.get("model_name"),
                 )
-        
+
         self.logger.info(
             "all_hierarchies_created",
             trace_id=self.trace_id,
             models_count=len(created),
             total_children_count=total_children_created,
         )
-        
+
         return created, total_children_created
-    
+
     def to_dict(self, result: ModelExtractionResult) -> dict[str, Any]:
         """
         Converte resultado para dict compatível com resposta do endpoint.
-        
+
         Mantém formato compatível com a Edge Function original.
         """
         return {

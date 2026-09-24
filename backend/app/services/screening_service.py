@@ -5,7 +5,7 @@ Core business logic for the article screening workflow:
 decisions, conflicts, progress, inter-rater reliability.
 """
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from uuid import UUID
 
 from sqlalchemy import and_, func, select
@@ -57,13 +57,16 @@ class ScreeningService(LoggerMixin):
         existing = await self.config_repo.get_by_project_and_phase(project_id, phase)
 
         if existing:
-            return await self.config_repo.update(existing, {
-                "require_dual_review": require_dual_review,
-                "blind_mode": blind_mode,
-                "criteria": criteria or [],
-                "ai_model_name": ai_model_name,
-                "ai_system_instruction": ai_system_instruction,
-            })
+            return await self.config_repo.update(
+                existing,
+                {
+                    "require_dual_review": require_dual_review,
+                    "blind_mode": blind_mode,
+                    "criteria": criteria or [],
+                    "ai_model_name": ai_model_name,
+                    "ai_system_instruction": ai_system_instruction,
+                },
+            )
 
         config = ScreeningConfig(
             project_id=project_id,
@@ -103,11 +106,14 @@ class ScreeningService(LoggerMixin):
         )
 
         if existing:
-            return await self.decision_repo.update(existing, {
-                "decision": decision,
-                "reason": reason,
-                "criteria_responses": criteria_responses or {},
-            })
+            return await self.decision_repo.update(
+                existing,
+                {
+                    "decision": decision,
+                    "reason": reason,
+                    "criteria_responses": criteria_responses or {},
+                },
+            )
 
         # Create new decision
         screening_decision = ScreeningDecision(
@@ -135,9 +141,7 @@ class ScreeningService(LoggerMixin):
         self, project_id: UUID, article_id: UUID, phase: str
     ) -> None:
         """Check if two reviewers disagree and create a conflict."""
-        decisions = await self.decision_repo.get_by_article(
-            project_id, article_id, phase
-        )
+        decisions = await self.decision_repo.get_by_article(project_id, article_id, phase)
 
         if len(decisions) < 2:
             return
@@ -146,9 +150,7 @@ class ScreeningService(LoggerMixin):
         d1, d2 = decisions[0], decisions[1]
         if d1.decision != d2.decision:
             # Check if conflict already exists
-            existing = await self.conflict_repo.get_by_article(
-                project_id, article_id, phase
-            )
+            existing = await self.conflict_repo.get_by_article(project_id, article_id, phase)
             if not existing:
                 conflict = ScreeningConflict(
                     project_id=project_id,
@@ -179,26 +181,25 @@ class ScreeningService(LoggerMixin):
         if not conflict:
             raise ValueError("Conflict not found")
 
-        updated = await self.conflict_repo.update(conflict, {
-            "status": "resolved",
-            "resolved_by": UUID(self.user_id),
-            "resolved_decision": decision,
-            "resolved_reason": reason,
-            "resolved_at": datetime.now(timezone.utc),
-        })
+        updated = await self.conflict_repo.update(
+            conflict,
+            {
+                "status": "resolved",
+                "resolved_by": UUID(self.user_id),
+                "resolved_decision": decision,
+                "resolved_reason": reason,
+                "resolved_at": datetime.now(UTC),
+            },
+        )
 
         # Update article screening phase based on resolution
-        await self._update_article_screening_phase(
-            conflict.article_id, conflict.phase, decision
-        )
+        await self._update_article_screening_phase(conflict.article_id, conflict.phase, decision)
 
         return updated
 
     # =================== PROGRESS ===================
 
-    async def get_progress(
-        self, project_id: UUID, phase: str
-    ) -> ScreeningProgressStats:
+    async def get_progress(self, project_id: UUID, phase: str) -> ScreeningProgressStats:
         """Get screening progress statistics."""
         # Total articles in project
         total_result = await self.db.execute(
@@ -229,20 +230,12 @@ class ScreeningService(LoggerMixin):
         total = total_result.scalar_one()
 
         # Title/abstract screening
-        ta_screened = await self.decision_repo.count_screened_articles(
-            project_id, "title_abstract"
-        )
-        ta_counts = await self.decision_repo.count_by_decision(
-            project_id, "title_abstract"
-        )
+        ta_screened = await self.decision_repo.count_screened_articles(project_id, "title_abstract")
+        ta_counts = await self.decision_repo.count_by_decision(project_id, "title_abstract")
 
         # Full-text screening
-        ft_screened = await self.decision_repo.count_screened_articles(
-            project_id, "full_text"
-        )
-        ft_counts = await self.decision_repo.count_by_decision(
-            project_id, "full_text"
-        )
+        ft_screened = await self.decision_repo.count_screened_articles(project_id, "full_text")
+        ft_counts = await self.decision_repo.count_by_decision(project_id, "full_text")
 
         return PRISMAFlowData(
             total_imported=total,
@@ -256,9 +249,7 @@ class ScreeningService(LoggerMixin):
 
     # =================== INTER-RATER RELIABILITY ===================
 
-    async def compute_cohens_kappa(
-        self, project_id: UUID, phase: str
-    ) -> float | None:
+    async def compute_cohens_kappa(self, project_id: UUID, phase: str) -> float | None:
         """
         Compute Cohen's Kappa for dual-reviewer agreement.
 
@@ -297,8 +288,8 @@ class ScreeningService(LoggerMixin):
         po = agree / n
 
         # Expected agreement by chance
-        cat_counts_1 = {c: 0 for c in categories}
-        cat_counts_2 = {c: 0 for c in categories}
+        cat_counts_1 = dict.fromkeys(categories, 0)
+        cat_counts_2 = dict.fromkeys(categories, 0)
         for p in pairs:
             d1, d2 = p[0].decision, p[1].decision
             if d1 in cat_counts_1:
@@ -306,10 +297,7 @@ class ScreeningService(LoggerMixin):
             if d2 in cat_counts_2:
                 cat_counts_2[d2] += 1
 
-        pe = sum(
-            (cat_counts_1.get(c, 0) / n) * (cat_counts_2.get(c, 0) / n)
-            for c in categories
-        )
+        pe = sum((cat_counts_1.get(c, 0) / n) * (cat_counts_2.get(c, 0) / n) for c in categories)
 
         if pe == 1.0:
             return 1.0

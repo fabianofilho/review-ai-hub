@@ -12,7 +12,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.core.logging import LoggerMixin
 from app.infrastructure.storage.base import StorageAdapter
-from app.models.article import ArticleFile, Article
+from app.models.article import Article, ArticleFile
 from app.repositories.article_repository import ArticleFileRepository, ArticleRepository
 from app.schemas.article_import import CSVImportResult
 from app.services.article_source_normalization import (

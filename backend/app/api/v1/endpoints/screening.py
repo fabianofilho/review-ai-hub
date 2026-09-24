@@ -6,7 +6,7 @@ API endpoints for the article screening workflow.
 
 import uuid
 
-from fastapi import APIRouter, Depends, HTTPException, Request, status
+from fastapi import APIRouter, Depends, Request
 
 from app.core.deps import (
     CurrentUser,
@@ -31,12 +31,10 @@ from app.schemas.screening import (
     ScreeningDashboardData,
     ScreeningDecisionCreate,
     ScreeningDecisionResponse,
-    ScreeningProgressStats,
-    PRISMAFlowData,
 )
+from app.services.ai_screening_service import AIScreeningService
 from app.services.api_key_service import APIKeyService
 from app.services.screening_service import ScreeningService
-from app.services.ai_screening_service import AIScreeningService
 from app.utils.rate_limiter import limiter
 
 router = APIRouter()
@@ -97,6 +95,7 @@ async def get_config(
 ) -> ApiResponse:
     """Get screening configuration for a project/phase."""
     from app.repositories.screening_repository import ScreeningConfigRepository
+
     repo = ScreeningConfigRepository(db)
     config = await repo.get_by_project_and_phase(project_id, phase)
     if not config:
@@ -142,7 +141,9 @@ async def submit_decision(
         )
     except Exception as e:
         logger.error("screening_decision_error", trace_id=trace_id, error=str(e))
-        return ApiResponse.failure(code="SCREENING_DECISION_ERROR", message=str(e), trace_id=trace_id)
+        return ApiResponse.failure(
+            code="SCREENING_DECISION_ERROR", message=str(e), trace_id=trace_id
+        )
 
 
 @router.get(
@@ -159,10 +160,13 @@ async def list_decisions(
 ) -> ApiResponse:
     """List all screening decisions for a project/phase."""
     from app.repositories.screening_repository import ScreeningDecisionRepository
+
     repo = ScreeningDecisionRepository(db)
 
-    from sqlalchemy import select, and_
+    from sqlalchemy import and_, select
+
     from app.models.screening import ScreeningDecision
+
     result = await db.execute(
         select(ScreeningDecision).where(
             and_(
@@ -173,7 +177,9 @@ async def list_decisions(
     )
     decisions = result.scalars().all()
     return ApiResponse.success(
-        data=[ScreeningDecisionResponse.model_validate(d).model_dump(by_alias=True) for d in decisions]
+        data=[
+            ScreeningDecisionResponse.model_validate(d).model_dump(by_alias=True) for d in decisions
+        ]
     )
 
 
@@ -215,10 +221,13 @@ async def list_conflicts(
 ) -> ApiResponse:
     """List all unresolved screening conflicts."""
     from app.repositories.screening_repository import ScreeningConflictRepository
+
     repo = ScreeningConflictRepository(db)
     conflicts = await repo.get_unresolved(project_id, phase)
     return ApiResponse.success(
-        data=[ScreeningConflictResponse.model_validate(c).model_dump(by_alias=True) for c in conflicts]
+        data=[
+            ScreeningConflictResponse.model_validate(c).model_dump(by_alias=True) for c in conflicts
+        ]
     )
 
 
@@ -255,7 +264,9 @@ async def resolve_conflict(
         )
     except Exception as e:
         logger.error("screening_conflict_error", trace_id=trace_id, error=str(e))
-        return ApiResponse.failure(code="SCREENING_CONFLICT_ERROR", message=str(e), trace_id=trace_id)
+        return ApiResponse.failure(
+            code="SCREENING_CONFLICT_ERROR", message=str(e), trace_id=trace_id
+        )
 
 
 # =================== AI SCREENING ===================
@@ -360,7 +371,9 @@ async def ai_screen_batch(
         return ApiResponse.success(data=results, trace_id=trace_id)
     except Exception as e:
         logger.error("ai_screening_batch_error", trace_id=trace_id, error=str(e))
-        return ApiResponse.failure(code="AI_SCREENING_BATCH_ERROR", message=str(e), trace_id=trace_id)
+        return ApiResponse.failure(
+            code="AI_SCREENING_BATCH_ERROR", message=str(e), trace_id=trace_id
+        )
 
 
 # =================== PRISMA ===================
