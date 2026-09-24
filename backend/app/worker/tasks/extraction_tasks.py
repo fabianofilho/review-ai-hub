@@ -8,17 +8,16 @@ import asyncio
 from typing import Any
 from uuid import UUID
 
-from app.worker.celery_app import celery_app
+from app.worker.celery_app import LoggedTask, bound_task
 
 
-@celery_app.task(
-    bind=True,
+@bound_task(
     max_retries=3,
     default_retry_delay=60,
     rate_limit="5/m",
 )
 def extract_section_task(
-    self,
+    self: LoggedTask,
     project_id: str,
     article_id: str,
     template_id: str,
@@ -47,7 +46,7 @@ def extract_section_task(
     from app.services.api_key_service import APIKeyService
     from app.services.section_extraction_service import SectionExtractionService
 
-    async def run():
+    async def run() -> dict[str, Any]:
         async with AsyncSessionLocal() as session:
             try:
                 supabase = get_supabase_client()
@@ -90,17 +89,16 @@ def extract_section_task(
     try:
         return asyncio.run(run())
     except Exception as exc:
-        self.retry(exc=exc)
+        raise self.retry(exc=exc)
 
 
-@celery_app.task(
-    bind=True,
+@bound_task(
     max_retries=3,
     default_retry_delay=60,
     rate_limit="5/m",
 )
 def extract_models_task(
-    self,
+    self: LoggedTask,
     project_id: str,
     article_id: str,
     template_id: str,
@@ -125,7 +123,7 @@ def extract_models_task(
     from app.services.api_key_service import APIKeyService
     from app.services.model_extraction_service import ModelExtractionService
 
-    async def run():
+    async def run() -> dict[str, Any]:
         async with AsyncSessionLocal() as session:
             try:
                 supabase = get_supabase_client()
@@ -178,17 +176,16 @@ def extract_models_task(
     try:
         return asyncio.run(run())
     except Exception as exc:
-        self.retry(exc=exc)
+        raise self.retry(exc=exc)
 
 
-@celery_app.task(
-    bind=True,
+@bound_task(
     max_retries=2,
     default_retry_delay=120,
     rate_limit="1/m",
 )
 def batch_extract_task(
-    self,
+    self: LoggedTask,
     project_id: str,
     article_ids: list[str],
     template_id: str,
@@ -206,7 +203,7 @@ def batch_extract_task(
     Returns:
         Dict com estatísticas do batch.
     """
-    results = {
+    results: dict[str, Any] = {
         "total": len(article_ids),
         "queued": 0,
         "results": [],

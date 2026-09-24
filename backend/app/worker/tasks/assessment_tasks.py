@@ -8,17 +8,16 @@ import asyncio
 from typing import Any
 from uuid import UUID
 
-from app.worker.celery_app import celery_app
+from app.worker.celery_app import LoggedTask, bound_task
 
 
-@celery_app.task(
-    bind=True,
+@bound_task(
     max_retries=3,
     default_retry_delay=60,
     rate_limit="5/m",
 )
 def assess_article_task(
-    self,
+    self: LoggedTask,
     project_id: str,
     article_id: str,
     assessment_item_id: str,
@@ -42,7 +41,7 @@ def assess_article_task(
     from app.core.factories import create_storage_adapter
     from app.services.ai_assessment_service import AIAssessmentService
 
-    async def run():
+    async def run() -> dict[str, Any]:
         async with AsyncSessionLocal() as session:
             try:
                 supabase = get_supabase_client()
@@ -77,17 +76,16 @@ def assess_article_task(
     try:
         return asyncio.run(run())
     except Exception as exc:
-        self.retry(exc=exc)
+        raise self.retry(exc=exc)
 
 
-@celery_app.task(
-    bind=True,
+@bound_task(
     max_retries=2,
     default_retry_delay=120,
     rate_limit="2/m",
 )
 def batch_assess_task(
-    self,
+    self: LoggedTask,
     project_id: str,
     article_ids: list[str],
     instrument_id: str,
@@ -105,7 +103,7 @@ def batch_assess_task(
     Returns:
         Dict com estatísticas do batch.
     """
-    results = {
+    results: dict[str, Any] = {
         "total": len(article_ids),
         "completed": 0,
         "failed": 0,
