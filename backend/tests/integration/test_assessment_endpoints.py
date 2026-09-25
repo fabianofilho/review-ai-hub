@@ -8,6 +8,21 @@ from uuid import uuid4
 import pytest
 from httpx import AsyncClient
 
+
+@pytest.fixture
+def project_member():
+    """
+    Let the request through the project membership check.
+
+    The test client user is not a real project member, and the check itself is
+    covered by tests/unit/test_project_membership_authz.py.
+    """
+    with patch(
+        "app.api.v1.endpoints.ai_assessment.ensure_project_member", AsyncMock(return_value=None)
+    ) as ensure_member:
+        yield ensure_member
+
+
 # The AI assessment router is mounted under the "/ai-assessment" prefix
 # (see app/api/v1/router.py), which is the path the frontend service calls.
 AI_ASSESSMENT_URL = "/api/v1/ai-assessment/ai"
@@ -36,6 +51,7 @@ class TestAIAssessmentEndpoints:
     async def test_ai_assessment_valid_request(
         self,
         client: AsyncClient,
+        project_member: AsyncMock,
     ) -> None:
         """Test AI assessment with valid request."""
         from app.services.ai_assessment_service import AssessmentResult
@@ -73,6 +89,7 @@ class TestAIAssessmentEndpoints:
             )
 
             assert response.status_code == 200
+            project_member.assert_awaited()
             data = response.json()
             assert data.get("ok") is True
             assert data["data"]["id"] == assessment_id
@@ -91,6 +108,7 @@ class TestAIAssessmentEndpoints:
     async def test_ai_assessment_with_pdf_source(
         self,
         client: AsyncClient,
+        project_member: AsyncMock,
     ) -> None:
         """Test AI assessment specifying PDF source."""
         from app.services.ai_assessment_service import AssessmentResult
@@ -125,6 +143,7 @@ class TestAIAssessmentEndpoints:
             )
 
             assert response.status_code == 200
+            project_member.assert_awaited()
             assert response.json()["data"]["evidencePassages"] == [
                 {"text": "Sample evidence", "page_number": 5}
             ]
@@ -135,6 +154,7 @@ class TestAIAssessmentEndpoints:
     async def test_ai_assessment_force_file_search(
         self,
         client: AsyncClient,
+        project_member: AsyncMock,
     ) -> None:
         """Test AI assessment with force_file_search."""
         from app.services.ai_assessment_service import AssessmentResult
@@ -167,6 +187,7 @@ class TestAIAssessmentEndpoints:
             )
 
             assert response.status_code == 200
+            project_member.assert_awaited()
             assert response.json()["data"]["metadata"]["methodUsed"] == "file_search"
             mock_service.assess.assert_awaited_once()
             assert mock_service.assess.await_args.kwargs["force_file_search"] is True

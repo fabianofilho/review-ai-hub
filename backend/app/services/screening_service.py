@@ -98,6 +98,7 @@ class ScreeningService(LoggerMixin):
         If dual review is active and both reviewers have decided,
         automatically detects conflicts.
         """
+        await self.article_repo.ensure_in_project([article_id], project_id)
         reviewer_id = UUID(self.user_id)
 
         # Check for existing decision (update if exists)
@@ -340,11 +341,8 @@ class ScreeningService(LoggerMixin):
         Returns count of articles advanced.
         """
         if article_ids:
-            articles = []
-            for aid in article_ids:
-                a = await self.db.get(Article, aid)
-                if a:
-                    articles.append(a)
+            # Only articles of this project can be advanced.
+            articles = await self.article_repo.get_by_ids(article_ids, project_id)
         else:
             # Get all articles included in title/abstract phase
             result = await self.db.execute(

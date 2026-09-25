@@ -10,10 +10,20 @@ import uuid
 from typing import Any
 from uuid import UUID
 
-from fastapi import APIRouter, HTTPException, Request, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
+from sqlalchemy.ext.asyncio import AsyncSession
 
-from app.core.deps import CurrentUser, DbSession
+from app.core.deps import (
+    CurrentUser,
+    DbSession,
+    ensure_project_member,
+    require_project_member,
+)
 from app.core.logging import get_logger
+from app.repositories.assessment_repository import (
+    ProjectAssessmentInstrumentRepository,
+    ProjectAssessmentItemRepository,
+)
 from app.schemas.assessment import (
     CloneInstrumentRequest,
     CloneInstrumentResponse,
@@ -30,6 +40,36 @@ from app.utils.rate_limiter import limiter
 
 router = APIRouter()
 logger = get_logger(__name__)
+
+
+async def _ensure_instrument_access(
+    db: AsyncSession,
+    instrument_id: UUID,
+    user_id: str,
+) -> None:
+    """404 if the project instrument does not exist, 403 if the user is not a project member."""
+    instrument = await ProjectAssessmentInstrumentRepository(db).get_by_id(instrument_id)
+    if instrument is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Instrument not found: {instrument_id}",
+        )
+    await ensure_project_member(db, instrument.project_id, user_id)
+
+
+async def _ensure_item_access(
+    db: AsyncSession,
+    item_id: UUID,
+    user_id: str,
+) -> None:
+    """404 if the project item does not exist, 403 if the user is not a project member."""
+    item = await ProjectAssessmentItemRepository(db).get_by_id(item_id)
+    if item is None:
+        raise HTTPException(
+            status_code=status.HTTP_404_NOT_FOUND,
+            detail=f"Item not found: {item_id}",
+        )
+    await _ensure_instrument_access(db, item.project_instrument_id, user_id)
 
 
 @router.get(
@@ -71,6 +111,7 @@ async def list_global_instruments(
     response_model=ApiResponse,
     summary="List project instruments",
     description="Lists all instruments configured for a project.",
+    dependencies=[Depends(require_project_member)],
 )
 @limiter.limit("30/minute")
 async def list_project_instruments(
@@ -134,6 +175,7 @@ async def get_instrument(
     Fetch instrument by ID with items.
     """
     trace_id = str(uuid.uuid4())
+    await _ensure_instrument_access(db, instrument_id, user.sub)
 
     service = ProjectAssessmentInstrumentService(
         db=db,
@@ -184,6 +226,8 @@ async def clone_global_instrument(
         project_id=str(payload.project_id),
         global_instrument_id=str(payload.global_instrument_id),
     )
+
+    await ensure_project_member(db, payload.project_id, user.sub)
 
     service = ProjectAssessmentInstrumentService(
         db=db,
@@ -253,6 +297,8 @@ async def create_instrument(
         tool_type=payload.tool_type,
     )
 
+    await ensure_project_member(db, payload.project_id, user.sub)
+
     service = ProjectAssessmentInstrumentService(
         db=db,
         user_id=user.sub,
@@ -286,6 +332,7 @@ async def update_instrument(
     Atualiza um instrumento de projeto.
     """
     trace_id = str(uuid.uuid4())
+    await _ensure_instrument_access(db, instrument_id, user.sub)
 
     service = ProjectAssessmentInstrumentService(
         db=db,
@@ -327,6 +374,7 @@ async def delete_instrument(
     Remove o instrumento e todos os seus items.
     """
     trace_id = str(uuid.uuid4())
+    await _ensure_instrument_access(db, instrument_id, user.sub)
 
     service = ProjectAssessmentInstrumentService(
         db=db,
@@ -370,6 +418,7 @@ async def add_item(
     Adiciona um novo item a um instrumento.
     """
     trace_id = str(uuid.uuid4())
+    await _ensure_instrument_access(db, instrument_id, user.sub)
 
     service = ProjectAssessmentInstrumentService(
         db=db,
@@ -404,6 +453,7 @@ async def update_item(
     Atualiza um item de instrumento.
     """
     trace_id = str(uuid.uuid4())
+    await _ensure_item_access(db, item_id, user.sub)
 
     service = ProjectAssessmentInstrumentService(
         db=db,
@@ -443,6 +493,7 @@ async def delete_item(
     Deleta um item de instrumento.
     """
     trace_id = str(uuid.uuid4())
+    await _ensure_item_access(db, item_id, user.sub)
 
     service = ProjectAssessmentInstrumentService(
         db=db,

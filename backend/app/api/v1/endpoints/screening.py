@@ -7,11 +7,18 @@ API endpoints for the article screening workflow.
 import uuid
 from typing import Any
 
-from fastapi import APIRouter, Request
+from fastapi import APIRouter, Depends, Request
 
-from app.core.deps import CurrentUser, DbSession, SupabaseClient
+from app.core.deps import (
+    CurrentUser,
+    DbSession,
+    SupabaseClient,
+    ensure_project_member,
+    require_project_member,
+)
 from app.core.factories import create_storage_adapter
 from app.core.logging import get_logger
+from app.repositories.screening_repository import ScreeningConflictRepository
 from app.schemas.common import ApiResponse
 from app.schemas.screening import (
     AdvanceToFullTextRequest,
@@ -52,6 +59,7 @@ async def upsert_config(
 ) -> ApiResponse[Any]:
     """Create or update screening configuration for a project/phase."""
     trace_id = str(uuid.uuid4())
+    await ensure_project_member(db, payload.project_id, user.sub)
     try:
         service = ScreeningService(db=db, user_id=user.sub)
         config = await service.upsert_config(
@@ -78,6 +86,7 @@ async def upsert_config(
     "/config/{project_id}/{phase}",
     response_model=ApiResponse,
     summary="Get screening config",
+    dependencies=[Depends(require_project_member)],
 )
 async def get_config(
     project_id: str,
@@ -114,6 +123,7 @@ async def submit_decision(
 ) -> ApiResponse[Any]:
     """Submit a screening decision for an article."""
     trace_id = str(uuid.uuid4())
+    await ensure_project_member(db, payload.project_id, user.sub)
     try:
         service = ScreeningService(db=db, user_id=user.sub)
         decision = await service.create_decision(
@@ -141,6 +151,7 @@ async def submit_decision(
     "/decisions/{project_id}/{phase}",
     response_model=ApiResponse,
     summary="List screening decisions",
+    dependencies=[Depends(require_project_member)],
 )
 async def list_decisions(
     project_id: str,
@@ -176,6 +187,7 @@ async def list_decisions(
     "/progress/{project_id}/{phase}",
     response_model=ApiResponse,
     summary="Get screening progress",
+    dependencies=[Depends(require_project_member)],
 )
 async def get_progress(
     project_id: str,
@@ -196,6 +208,7 @@ async def get_progress(
     "/conflicts/{project_id}/{phase}",
     response_model=ApiResponse,
     summary="List screening conflicts",
+    dependencies=[Depends(require_project_member)],
 )
 async def list_conflicts(
     project_id: str,
@@ -223,17 +236,20 @@ async def list_conflicts(
 @limiter.limit("30/minute")
 async def resolve_conflict(
     request: Request,
-    conflict_id: str,
+    conflict_id: uuid.UUID,
     payload: ResolveConflictRequest,
     db: DbSession,
     user: CurrentUser,
 ) -> ApiResponse[Any]:
     """Resolve a screening conflict."""
     trace_id = str(uuid.uuid4())
+    existing = await ScreeningConflictRepository(db).get_by_id(conflict_id)
+    if existing is not None:
+        await ensure_project_member(db, existing.project_id, user.sub)
     try:
         service = ScreeningService(db=db, user_id=user.sub)
         conflict = await service.resolve_conflict(
-            conflict_id=uuid.UUID(conflict_id),
+            conflict_id=conflict_id,
             decision=payload.decision,
             reason=payload.reason,
         )
@@ -268,6 +284,7 @@ async def ai_screen(
 ) -> ApiResponse[Any]:
     """AI-screen a single article."""
     trace_id = str(uuid.uuid4())
+    await ensure_project_member(db, payload.project_id, user.sub)
     try:
         api_key_service = APIKeyService(db=db, user_id=user.sub)
         user_openai_key = await api_key_service.get_key_for_provider("openai")
@@ -322,6 +339,7 @@ async def ai_screen_batch(
 ) -> ApiResponse[Any]:
     """AI-screen multiple articles."""
     trace_id = str(uuid.uuid4())
+    await ensure_project_member(db, payload.project_id, user.sub)
     try:
         api_key_service = APIKeyService(db=db, user_id=user.sub)
         user_openai_key = await api_key_service.get_key_for_provider("openai")
@@ -362,6 +380,7 @@ async def ai_screen_batch(
     "/prisma/{project_id}",
     response_model=ApiResponse,
     summary="Get PRISMA flow data",
+    dependencies=[Depends(require_project_member)],
 )
 async def get_prisma(
     project_id: str,
@@ -381,6 +400,7 @@ async def get_prisma(
     "/dashboard/{project_id}/{phase}",
     response_model=ApiResponse,
     summary="Get screening dashboard",
+    dependencies=[Depends(require_project_member)],
 )
 async def get_dashboard(
     project_id: str,
@@ -422,6 +442,7 @@ async def bulk_decide(
 ) -> ApiResponse[Any]:
     """Bulk include/exclude multiple articles."""
     trace_id = str(uuid.uuid4())
+    await ensure_project_member(db, payload.project_id, user.sub)
     try:
         service = ScreeningService(db=db, user_id=user.sub)
         count = await service.bulk_decide(
@@ -453,6 +474,7 @@ async def advance_to_fulltext(
 ) -> ApiResponse[Any]:
     """Advance included articles from title/abstract to full-text screening."""
     trace_id = str(uuid.uuid4())
+    await ensure_project_member(db, payload.project_id, user.sub)
     try:
         service = ScreeningService(db=db, user_id=user.sub)
         count = await service.advance_to_fulltext(

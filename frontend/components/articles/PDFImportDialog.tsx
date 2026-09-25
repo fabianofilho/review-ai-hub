@@ -150,10 +150,17 @@ export function PDFImportDialog({
         setStep('extracting');
 
         try {
-            // Step 1: Upload PDF to Supabase Storage with a temp article ID
+            const {data: {session}} = await supabase.auth.getSession();
+            if (!session?.access_token) {
+                throw new Error('Authentication required');
+            }
+
+            // Step 1: Upload PDF to the user's temporary area of Supabase Storage.
+            // The backend only accepts keys under temp/{userId}/ and moves the
+            // file to its permanent path when the article is created.
             const tempId = crypto.randomUUID();
             const fileExt = file.name.split('.').pop();
-            const key = `${projectId}/${tempId}/${Date.now()}.${fileExt}`;
+            const key = `temp/${session.user.id}/${tempId}/${Date.now()}.${fileExt}`;
 
             const {error: uploadError} = await supabase.storage
                 .from('articles')
@@ -165,11 +172,6 @@ export function PDFImportDialog({
             setStorageKey(key);
 
             // Step 2: Call backend to extract metadata via AI
-            const {data: {session}} = await supabase.auth.getSession();
-            if (!session?.access_token) {
-                throw new Error('Authentication required');
-            }
-
             const formPayload = new FormData();
             formPayload.append('project_id', projectId);
             formPayload.append('storage_key', key);

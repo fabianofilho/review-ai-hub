@@ -86,6 +86,9 @@ def service(mock_db, mock_storage):
         svc._instances = mock_instance_repo_instance
         svc._suggestions = mock_suggestion_repo_instance
         svc._runs = mock_run_repo_instance
+        # Article ownership check: the article belongs to the project by default.
+        svc._articles = MagicMock()
+        svc._articles.ensure_in_project = AsyncMock()
 
         return svc
 

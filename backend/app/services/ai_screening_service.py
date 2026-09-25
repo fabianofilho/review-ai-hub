@@ -110,9 +110,9 @@ class AIScreeningService(LoggerMixin):
         if not config:
             raise ValueError(f"No screening config for phase {phase}")
 
-        # Get article
+        # Get article (must belong to the project being screened)
         article = await self.db.get(Article, article_id)
-        if not article:
+        if not article or str(article.project_id) != str(project_id):
             raise ValueError(f"Article {article_id} not found")
 
         # Build criteria prompt

@@ -9,6 +9,23 @@ import pytest
 from httpx import AsyncClient
 
 
+@pytest.fixture
+def project_member():
+    """
+    Let the request through the project membership check.
+
+    The test client user is not a real project member, and the check itself is
+    covered by tests/unit/test_project_membership_authz.py. Both extraction
+    routers import ensure_project_member, so both names are patched with one mock.
+    """
+    ensure_member = AsyncMock(return_value=None)
+    with (
+        patch("app.api.v1.endpoints.section_extraction.ensure_project_member", ensure_member),
+        patch("app.api.v1.endpoints.model_extraction.ensure_project_member", ensure_member),
+    ):
+        yield ensure_member
+
+
 class TestSectionExtractionEndpoints:
     """Integration tests for section extraction endpoints."""
 
@@ -55,6 +72,7 @@ class TestSectionExtractionEndpoints:
     async def test_section_extraction_valid_request(
         self,
         client: AsyncClient,
+        project_member: AsyncMock,
     ) -> None:
         """Test extraction with valid request."""
         from app.services.section_extraction_service import SectionExtractionResult
@@ -88,6 +106,7 @@ class TestSectionExtractionEndpoints:
             )
 
             assert response.status_code == 200
+            project_member.assert_awaited()
             data = response.json()
             assert data.get("ok") is True
             assert data["data"]["extractionRunId"] == extraction_run_id
@@ -96,6 +115,7 @@ class TestSectionExtractionEndpoints:
     async def test_section_extraction_batch_valid_request(
         self,
         client: AsyncClient,
+        project_member: AsyncMock,
     ) -> None:
         """Test batch extraction with valid request."""
         from app.services.section_extraction_service import BatchExtractionResult
@@ -131,6 +151,7 @@ class TestSectionExtractionEndpoints:
             )
 
             assert response.status_code == 200
+            project_member.assert_awaited()
             data = response.json()
             assert data.get("ok") is True
             assert data["data"]["extractionRunId"] == extraction_run_id
@@ -157,6 +178,7 @@ class TestModelExtractionEndpoints:
     async def test_model_extraction_valid_request(
         self,
         client: AsyncClient,
+        project_member: AsyncMock,
     ) -> None:
         """Test model extraction with valid request."""
         from app.services.model_extraction_service import ModelExtractionResult
@@ -190,6 +212,7 @@ class TestModelExtractionEndpoints:
             )
 
             assert response.status_code == 200
+            project_member.assert_awaited()
             data = response.json()
             assert data.get("ok") is True
             assert data["data"]["extractionRunId"] == extraction_run_id

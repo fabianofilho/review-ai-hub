@@ -5,19 +5,23 @@ Contém todas as dependencies compartilhadas da aplicação:
 - Database session
 - Supabase client
 - Current user
+- Project membership check
 """
 
 from collections.abc import AsyncGenerator
 from functools import lru_cache
 from typing import Annotated
+from uuid import UUID
 
 from fastapi import Depends
 from sqlalchemy.ext.asyncio import AsyncSession, async_sessionmaker, create_async_engine
 from supabase import Client, create_client
 
 from app.core.config import settings
+from app.core.error_handler import AuthorizationError
 from app.core.logging import get_logger
 from app.core.security import TokenPayload, get_current_user
+from app.repositories.project_repository import ProjectMemberRepository
 
 logger = get_logger(__name__)
 
@@ -102,6 +106,56 @@ SupabaseClient = Annotated[Client, Depends(get_supabase)]
 # =================== CURRENT USER ===================
 
 CurrentUser = Annotated[TokenPayload, Depends(get_current_user)]
+
+
+# =================== PROJECT MEMBERSHIP ===================
+
+NOT_A_MEMBER_MESSAGE = "User is not a member of this project."
+
+
+async def ensure_project_member(
+    db: AsyncSession,
+    project_id: UUID | str,
+    user_id: UUID | str,
+) -> None:
+    """
+    Ensure that the user is a member of the project.
+
+    The backend talks to Postgres directly (RLS does not apply), so every
+    route that receives a project_id must run this check before reading or
+    writing project data.
+
+    Raises:
+        AuthorizationError: HTTP 403 when the user is not a member, or when
+            the ids are not valid UUIDs.
+    """
+    try:
+        project_uuid = project_id if isinstance(project_id, UUID) else UUID(str(project_id))
+        user_uuid = user_id if isinstance(user_id, UUID) else UUID(str(user_id))
+    except (TypeError, ValueError):
+        raise AuthorizationError(NOT_A_MEMBER_MESSAGE) from None
+
+    if not await ProjectMemberRepository(db).is_member(project_uuid, user_uuid):
+        raise AuthorizationError(NOT_A_MEMBER_MESSAGE)
+
+
+async def require_project_member(
+    project_id: UUID,
+    db: DbSession,
+    user: CurrentUser,
+) -> UUID:
+    """
+    FastAPI dependency for routes with a `project_id` path or query parameter.
+
+    Returns the validated project id, or answers 403 when the current user is
+    not a member of the project. Routes that receive project_id in the body or
+    in a form must call ensure_project_member() explicitly.
+    """
+    await ensure_project_member(db, project_id, user.sub)
+    return project_id
+
+
+ProjectMemberId = Annotated[UUID, Depends(require_project_member)]
 
 
 # =================== COMBINED DEPENDENCIES ===================

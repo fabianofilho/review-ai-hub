@@ -21,6 +21,54 @@ from app.services.article_source_normalization import (
     normalize_scopus_csv_row,
 )
 
+# PDFs imported via AI are first uploaded by the browser to this per-user area
+# of the "articles" bucket, then moved to {project_id}/{article_id}/{filename}.
+TEMP_UPLOAD_ROOT = "temp"
+DEFAULT_PDF_FILENAME = "document.pdf"
+
+# Characters that the storage client does not keep as part of the object path.
+# It parses keys as URLs: "%" is percent-decoded ("%2e%2e" becomes ".." and is
+# then resolved), while "?" and "#" start a query or a fragment. A key holding
+# them would be validated as one object and downloaded as another.
+URL_UNSAFE_KEY_CHARS = frozenset("%?#")
+
+
+def temp_upload_prefix(user_id: str) -> str:
+    """Storage prefix where the given user uploads PDFs before import."""
+    return f"{TEMP_UPLOAD_ROOT}/{user_id}/"
+
+
+def is_user_temp_storage_key(storage_key: str, user_id: str) -> bool:
+    """
+    True when storage_key is an object inside the user's temporary upload area.
+
+    Storage is accessed with the service role, so a key taken from the request
+    must not point outside that area (another project's file, "..", encoded
+    "%2e%2e", etc.).
+    """
+    prefix = temp_upload_prefix(user_id)
+    if not storage_key.startswith(prefix) or len(storage_key) == len(prefix):
+        return False
+    if "\\" in storage_key or any(ch in URL_UNSAFE_KEY_CHARS for ch in storage_key):
+        return False
+    return all(segment not in ("", ".", "..") for segment in storage_key.split("/"))
+
+
+def sanitize_filename(filename: str | None) -> str:
+    """
+    Keep only the base name of an uploaded file.
+
+    Directories and control characters are dropped, and URL-unsafe characters
+    are replaced with "_" because the name becomes part of a storage key.
+    """
+    name = (filename or "").replace("\\", "/").split("/")[-1]
+    name = "".join(
+        "_" if ch in URL_UNSAFE_KEY_CHARS else ch for ch in name if ch.isprintable()
+    ).strip()
+    if name in ("", ".", ".."):
+        return DEFAULT_PDF_FILENAME
+    return name
+
 
 class ArticleImportService(LoggerMixin):
     """Service for importing articles from CSV and PDF sources."""
@@ -100,6 +148,9 @@ class ArticleImportService(LoggerMixin):
         moves the PDF to the permanent path, and creates the ArticleFile record.
         All in one DB transaction.
         """
+        # The client-provided name becomes part of the storage path.
+        original_filename = sanitize_filename(original_filename)
+
         payload = normalize_pdf_ai_entry(metadata)
         payload.article_fields["project_id"] = str(project_id)
 

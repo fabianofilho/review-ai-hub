@@ -31,6 +31,7 @@ from app.models.extraction import (
 from app.repositories import (
     AISuggestionRepository,
     ArticleFileRepository,
+    ArticleRepository,
     ExtractionEntityTypeRepository,
     ExtractionInstanceRepository,
     ExtractionRunRepository,
@@ -102,6 +103,7 @@ class SectionExtractionService(LoggerMixin):
         self.openai_service = OpenAIService(trace_id=trace_id, api_key=openai_api_key)
 
         # Repositories
+        self._articles = ArticleRepository(db)
         self._article_files = ArticleFileRepository(db)
         self._entity_types = ExtractionEntityTypeRepository(db)
         self._instances = ExtractionInstanceRepository(db)
@@ -132,6 +134,9 @@ class SectionExtractionService(LoggerMixin):
             SectionExtractionResult com extraction_run_id, sugestões e tokens.
         """
         start_time = time.time()
+
+        # The article (and so its PDF) must belong to the project.
+        await self._articles.ensure_in_project([article_id], project_id)
 
         # 1. Criar extraction_run no banco
         run = await self._runs.create_run(
@@ -264,6 +269,9 @@ class SectionExtractionService(LoggerMixin):
             BatchExtractionResult com estatísticas da extração.
         """
         start_time = time.time()
+
+        # The article (and so its PDF) must belong to the project.
+        await self._articles.ensure_in_project([article_id], project_id)
 
         # Criar run principal para o batch
         run = await self._runs.create_run(
