@@ -4,7 +4,7 @@
 - **Fork:** `fabianofilho/review-ai-hub`, branch `dev` at `14703e7` (2026-09-25)
 - **Upstream:** `raphaelfh/prumo` (the repository formerly named `raphaelfh/review-ai-hub`), branch `dev` at `cea4c26` (2026-09-26)
 - **Fork point:** `997cbd9` (2026-03-29), the last upstream commit in the fork
-- **Findings covered:** TOPO-09, REV-07, REV-09, REV-11, INTEG-13, INTEG-12, HUB-17, from the lab's review of its DataSUS and systematic review repositories (September 2026)
+- **Findings covered:** TOPO-09, REV-07, REV-09, REV-11, INTEG-13, INTEG-12, HUB-17 (and REV-10, REV-16 as items to send upstream), from the lab's review of its DataSUS and systematic review repositories (September 2026)
 
 This report supports one decision: archive the fork and use the upstream, reopen the contribution upstream (PR #7 was not merged), or keep a hard fork and take on the AGPL obligations. It changes no code.
 
@@ -20,17 +20,20 @@ This report supports one decision: archive the fork and use the upstream, reopen
 | Import from PDF with AI metadata | Yes | No (deferred to the AI phase) |
 | CHARMS extraction input | First 15,000 characters of the PDF text, nothing recorded [REV-09] | Whole stored text up to a 96,000-token budget, lowest-priority sections dropped first, truncation recorded and shown |
 | PROBAST | 20 signaling questions only, no domain judgment, no applicability, no overall [REV-11] | PROBAST 2019 with per-domain risk of bias, applicability and overall fields; PROBAST+AI 2.2.0 with computed overall; QUADAS-2 |
-| Multi-reviewer consensus | Screening only, conflict from the first two decisions | Extraction and quality assessment: reviewer count, consensus rule, arbitrator |
+| Multi-reviewer consensus | Screening: conflict from the first two decisions. Extraction and assessment: other reviewers' values shown side by side with an agreement badge, but no consensus rule or arbitrator, and the `is_consensus` flag is never set | Extraction and quality assessment: reviewer count, consensus rule, arbitrator |
 | Machine access | Supabase user JWT only; export of article metadata only [INTEG-13] | Personal access tokens and an MCP server at `/mcp` with 11 tools; Excel export of extraction and quality assessment |
 | Deploy config | Render web service and Vercel, no Celery worker | Railway web service, Celery worker and Redis, Vercel frontend |
 
 In short: the upstream already solved REV-09, REV-11 and INTEG-13, in an architecture the fork cannot merge. The fork's only real functional advantage is screening, PRISMA and two import paths. That screening code is the part the upstream rejected, and REV-07 sits inside it.
+
+**Correction to TOPO-09.** The lab's review states that the upstream later implemented screening and import on its own (TOPO-09), and its decision 9 asks to archive the fork if those cover the lab's case. At `cea4c26` there is nothing to cover it: the upstream has no screening code, no PRISMA and no import source beyond Zotero, RIS and manual entry (section 2). Its own spec and roadmap say so. TOPO-09 also said the lab's contributions were never sent upstream; they were, as PRs #7 and #37 (section 8). Archiving the fork therefore means giving up in-app screening, not moving to an upstream version of it.
 
 ## 1. How this was measured
 
 - Code was read on both sides. Paths are relative to each repository root, prefixed `fork:` or `upstream:`. Line numbers refer to the SHAs above.
 - The local upstream clone is shallow (depth 1). To count commits, a metadata-only bare clone of the upstream was made outside the repository (`git clone --bare --filter=tree:0`). PR heads were fetched from `refs/pull/*`. The fork clone has enough history (102 commits) to reach the fork point.
 - The GitHub API for the upstream repository was not available in this session. The state of upstream PRs is inferred from git refs and from the upstream's own `docs/ROADMAP.md`.
+- Every file:line citation was checked a second time, in a separate pass, against both trees at the SHAs above. File and line counts in section 8 were recomputed from the git objects of both clones.
 - No deployed instance of either side was accessed. Whether the fork is deployed today was not verified.
 
 ## 2. Screening and import
@@ -52,38 +55,41 @@ In short: the upstream already solved REV-09, REV-11 and INTEG-13, in an archite
 
 ### Assessment
 
-The upstream spec records why PR #7 was not merged (spec `:26`, `:32`). The design predates the upstream database refactor. The spec also lists concrete defects: denormalized `screening_phase` semantics, nondeterministic and racy conflict logic, no rollback on exception, the frontend querying Supabase directly, a CSV preview parser that breaks on escaped quotes, and a cascade that could corrupt extraction data. Several are still visible in the fork today:
+The upstream spec records why PR #7 was not merged (spec `:26`, `:32`). PR #7 predates the upstream database refactor. The spec also lists concrete defects: denormalized `screening_phase` semantics, nondeterministic and racy conflict logic, no rollback on exception, the frontend querying Supabase directly, a CSV preview parser that breaks on escaped quotes, and a cascade that could corrupt extraction data. Several are still visible in the fork today:
 
 - conflicts compare `decisions[0]` and `decisions[1]` from a query with no `ORDER BY` (fork: `backend/app/services/screening_service.py:151`, `backend/app/repositories/screening_repository.py:50-62`);
 - the card view reads articles straight from Supabase (fork: `frontend/components/screening/ScreeningCardView.tsx:52-56`);
 - the CSV preview splits lines on commas (fork: `frontend/components/articles/CSVImportDialog.tsx:74-79`).
 
-The spec's section 12.3 (`:776-785`) turns each of those defects into a regression test that any future screening PR must pass.
+The spec's section 12.3 (`:776-785`) turns most of those defects into regression tests that any future screening PR must pass: rollback, deterministic conflicts, three or more reviewers, concurrent decisions, `screening_status` semantics, the `ai_suggestions` cascade and the CSV parser. The frontend bypass is not among them; the spec instead gives every screening read its own `/api/v1/screening` endpoint (spec `:354-416`).
+
+The spec was also written against the lab's work. Its header names the branch `fork/fabianofilho/dev` (spec `:24`) and keeps only the frontend UI sketches from PR #7 (spec `:26`), which the lab then sent as PR #37 on 2026-05-03 (section 8). The upstream maintainer engaged with the contribution and redesigned it, which matters for scenario B.
 
 ## 3. PRISMA counts and conflict resolution [REV-07]
 
 **Fork.** REV-07 is confirmed at `14703e7`:
 
 - `get_prisma_counts` fills excluded and included from `count_by_decision` (fork: `backend/app/services/screening_service.py:245-248`), which counts `ScreeningDecision.id` grouped by decision (fork: `backend/app/repositories/screening_repository.py:105`, `:113`). That is rows, not articles.
-- The unique key allows one row per reviewer (fork: `backend/alembic/versions/20260329_007_add_screening_tables.py:57`). With dual review, every agreed decision counts twice. An article in conflict counts once as included and once as excluded.
+- The unique key allows one row per reviewer (fork: `backend/alembic/versions/20260329_007_add_screening_tables.py:57`). With dual review, every agreed decision counts twice. At full text, an article in conflict counts once as included and once as excluded. At title and abstract, it counts as excluded even when it moves on to full text.
 - `resolve_conflict` stores `resolved_decision` (fork: `screening_service.py:190`), but the PRISMA counts never read it.
 - `duplicates_removed` is fixed at 0 (fork: `screening_service.py:243`), although the CSV import computes a duplicate count that is never stored (fork: `article_import_service.py:96-131`).
-- One more defect, found while checking this: when a reviewer changes an existing decision, the service returns right after the update (fork: `screening_service.py:109-117`). It skips the conflict check at `:133`, so a changed decision never creates or clears a conflict.
-- With a single reviewer (`require_dual_review` false by default) include and exclude counts are right; the error appears in dual review.
+- One more defect, found while checking this: when a reviewer changes an existing decision, the service returns right after the update (fork: `screening_service.py:109-117`). It skips the conflict check at `:133-134`, so a changed decision never creates or clears a conflict, and it also skips the update of the article's denormalized `screening_phase` at `:137`.
+- With a single reviewer (`require_dual_review` false by default, fork: `20260329_007_add_screening_tables.py:29`) include and exclude counts are right; the error appears in dual review.
+- Outside screening, the fork has no consensus workflow either. Extraction shows other reviewers' values with an agreement badge (fork: `frontend/components/shared/comparison/ConsensusIndicator.tsx`, `frontend/components/extraction/colaboracao/OtherExtractionsPopover.tsx:95`). The `is_consensus` columns exist (fork: `backend/app/models/extraction.py:468`, `backend/app/models/assessment.py:576`), but no code sets them.
 
-**Upstream.** There is no screening and no PRISMA, so there is nothing to count. The design fixes this class of bug by construction. It has a per-article, append-only `screening_outcome` table (spec `:55`, `:177`), and a trigger keeps `articles.screening_status` as the single source of truth (spec `:56`, `:266-316`). PRISMA and kappa move to a read-only analytics service (spec `:339`, `:388-390`). For consensus, the upstream already has the mechanism the spec mirrors, in extraction: `reviewer_count`, `consensus_rule` and `arbitrator_id` (upstream: `backend/app/models/extraction_versioning.py:133-140`, rules in `backend/app/models/base.py:54`) and an append-only consensus service with optimistic concurrency (upstream: `backend/app/services/extraction_consensus_service.py:40-49`).
+**Upstream.** There is no screening and no PRISMA, so there is nothing to count. The design fixes this class of bug by construction. It has an append-only `screening_outcome` table with one row per assignment, that is per article and phase (spec `:55`, `:58`, `:142-152`, `:177-192`), and a trigger keeps `articles.screening_status` as the single source of truth (spec `:56`, `:266-316`). PRISMA and kappa move to a read-only analytics service (spec `:339`, `:388-390`). For consensus, the upstream already has the mechanism the spec mirrors, in extraction: `reviewer_count`, `consensus_rule` and `arbitrator_id` (upstream: `backend/app/models/extraction_versioning.py:133-140`, rules in `backend/app/models/base.py:54`) and an append-only consensus service with optimistic concurrency (upstream: `backend/app/services/extraction_consensus_service.py:40-49`).
 
 ## 4. CHARMS extraction input [REV-09]
 
-**Fork.** REV-09 is confirmed at `14703e7`. The prompt that fills each CHARMS section embeds `pdf_text[:15000]` (fork: `backend/app/services/section_extraction_service.py:756`). The model identification step does the same (fork: `backend/app/services/model_extraction_service.py:299`). `pdf_text` is the full text with page markers (fork: `backend/app/services/pdf_processor.py:84-101`). Nothing logs or stores how much was cut. By contrast, the fork's PROBAST assessment sends the whole PDF as `input_file`, or File Search above 10 MB (fork: `backend/app/services/ai_assessment_service.py:195-233`).
+**Fork.** REV-09 is confirmed at `14703e7`. The prompt that fills each CHARMS section embeds `pdf_text[:15000]` (fork: `backend/app/services/section_extraction_service.py:756`). The model identification step does the same (fork: `backend/app/services/model_extraction_service.py:299`). `pdf_text` is the full text with page markers (fork: `backend/app/services/pdf_processor.py:84-101`). Nothing logs or stores how much was cut. By contrast, the fork's PROBAST assessment sends the whole PDF as `input_file`. It switches to File Search above 32 MB for a single item (fork: `backend/app/services/ai_assessment_service.py:67-68`, `:195-233`) and above 10 MB in the batch path (`:405`).
 
 **Upstream.** Solved, with a different pipeline:
 
 - `build_prompt_input` uses the stored markdown of the article when it fits the budget. Otherwise it assembles the parsed blocks, dropping whole sections by priority (upstream: `backend/app/services/extraction_prompt_input.py:78-92`). It logs `truncated`, block counts and estimated tokens (`:94-102`) and returns them for provenance (`:103-109`).
-- The budget is `LLM_ASSEMBLY_BUDGET_TOKENS = 96_000` (upstream: `backend/app/core/config.py:180`). At the assembler's 4 characters per token (upstream: `backend/app/llm/assembler.py:327`), that is about 384,000 characters, enough for a typical full paper.
-- When a paper is over budget, Results rank above Methods and Introduction, and references and appendices go first (upstream: `backend/app/llm/assembler.py:106-118`).
+- The budget is `LLM_ASSEMBLY_BUDGET_TOKENS = 96_000` (upstream: `backend/app/core/config.py:180`). Tokens are counted with tiktoken for OpenAI models and at 4 characters per token otherwise (upstream: `backend/app/llm/assembler.py:327`, `:330-342`), so the budget is in the order of 380,000 characters, enough for a typical full paper.
+- When a paper is over budget, Results rank above Methods and Introduction, and page chrome, appendices and references go first (upstream: `backend/app/llm/assembler.py:106-118`).
 - Section extraction uses this path (upstream: `backend/app/services/section_extraction_service.py:263-277`). The review UI warns when the text was cut (upstream: `frontend/components/extraction/ai/shared/GenerationDetailsContent.tsx:206-210`, copy at `frontend/lib/copy/extraction.ts:670`).
-- Evidence quotes are anchored back to page and block (upstream: `backend/app/services/evidence_anchor_service.py:1-8`). REV-09 suggested exactly that: check that the quoted passage exists in the PDF.
+- Evidence quotes are anchored back to page and block (upstream: `backend/app/services/evidence_anchor_service.py:1-8`), and values that cannot be anchored get a "Verify manually" badge instead of being rejected (upstream: `frontend/lib/copy/extraction.ts:688`, `:698`; `docs/ROADMAP.md:52`). REV-09 suggested checking that the quoted passage exists in the PDF; the upstream flags it rather than blocking it.
 - The model identification step that truncated in the fork was retired upstream in favor of entry groups ("B6 the model pipeline retired (#829)" in upstream `docs/ROADMAP.md:49`; the fork's `model_extraction_service.py` no longer exists upstream).
 - Templates: CHARMS (upstream: `backend/app/seed.py:271`) and CHARMS + Multimodal for ML models (upstream: `backend/app/seed.py:186`).
 
@@ -99,7 +105,7 @@ The spec's section 12.3 (`:776-785`) turns each of those defects into a regressi
 
 **Upstream.** Solved and extended:
 
-- **PROBAST 2019** is a quality-assessment template with 5 sections. Each domain has signaling questions plus a risk-of-bias judgment, and domains 1 to 3 also have applicability concerns (upstream: `backend/app/seed.py:1450-1483`, `:1491`, domains at `:1566-1757`). The overall section has overall risk of bias and overall applicability (`:1759-1783`). In classic PROBAST these overall fields are entered by the assessor, not computed.
+- **PROBAST 2019** is a quality-assessment template with 5 sections. Each domain has signaling questions plus a risk-of-bias judgment, and domains 1 to 3 also have applicability concerns (upstream: `backend/app/seed.py:1450-1483`, `:1491`, domains at `:1566-1757`). The overall section has overall risk of bias and overall applicability (`:1759-1783`). In classic PROBAST these overall fields are not computed. Every judgment field, per domain and overall, carries an LLM instruction (`:1467`, `:1480`, `:1770`, `:1780`), so the AI can propose judgments here and the reviewer accepts, rejects or edits them (reviewer decisions in upstream: `backend/app/models/base.py:57`).
 - **PROBAST+AI 2.2.0** (Moons et al., BMJ 2025) is seeded separately. It follows the published form item by item, 13 sections and 95 fields (upstream: `backend/app/seed_probast_ai.py:1-36`, version at `:723`).
   - Domain judgments get a derived default from the signaling questions, and the assessor records the final value.
   - The overall values are computed with the rule "any domain high, overall high" (upstream: `backend/app/seed_probast_ai_data.py:458`, `:464`; `backend/app/services/derived_judgment_service.py:236-247`).
@@ -107,13 +113,13 @@ The spec's section 12.3 (`:776-785`) turns each of those defects into a regressi
 - **QUADAS-2** is seeded with the same structure (upstream: `backend/app/seed.py:1796`).
 - Quality assessments export to Excel from the same dialog as extraction (upstream commit `9b05014`, #788).
 
-This matches the REV-11 suggestion: keep PROBAST 2019 for reviews in progress and seed PROBAST+AI as a separate, versioned instrument.
+This matches the REV-11 suggestion: keep PROBAST 2019 for reviews in progress and seed PROBAST+AI as a separate, versioned instrument. For the lab's ML models, PROBAST+AI is the one that keeps every judgment with the human assessor.
 
 ## 6. Machine API [INTEG-13, INTEG-12, HUB-17]
 
 **Fork.**
 
-- Authentication is only the Supabase user JWT (fork: `backend/app/core/deps.py:108`, `backend/app/core/security.py:28`).
+- Authentication is only the Supabase user JWT (fork: `backend/app/core/deps.py:107`, `backend/app/core/security.py:28`).
 - `user_api_keys` stores LLM provider keys, not API tokens (fork: `backend/app/api/v1/endpoints/user_api_keys.py:1-5`).
 - The only export is article metadata as CSV, RIS or RDF (fork: `backend/app/api/v1/endpoints/articles_export.py:1-4`, `backend/app/services/articles_export_service.py`).
 - There is no MCP server (no `mcp` reference in `backend/app`).
@@ -122,14 +128,16 @@ This matches the REV-11 suggestion: keep PROBAST 2019 for reviews in progress an
 
 - **Personal access tokens:**
   - scope `read` or `read_write`, expiry at most 365 days, only the SHA-256 hash stored, at most 10 active per user (upstream: `backend/app/models/personal_access_token.py:30-47`, `backend/app/services/pat_service.py:53-73`);
-  - managed at `/tokens` (upstream: `backend/app/api/v1/endpoints/personal_access_tokens.py:38-80`) and from a settings card (upstream: `frontend/components/user/PersonalAccessTokensGroup.tsx`, `McpClientConfigCard.tsx`);
+  - managed at `/api/v1/me/tokens` (upstream: `backend/app/api/v1/endpoints/personal_access_tokens.py:38-80`, prefix at `backend/app/api/v1/router.py:73-77`) and from a settings card (upstream: `frontend/components/user/PersonalAccessTokensGroup.tsx`, `McpClientConfigCard.tsx`);
   - added on 2026-09-25 (upstream commit `2e35180`, #972).
 - **MCP server** at `/mcp`, streamable HTTP, token authenticated, outside the JWT dependency (upstream: `backend/app/main.py:175-186`):
   - one dispatcher checks scope, rate limit, project membership and, for writes, the manager role (upstream: `backend/app/api/mcp/server.py:1-14`, `:219-222`);
   - limits are 120 reads and 20 writes per minute (`:55-56`);
   - read tools: `list_projects`, `get_project`, `list_articles`, `get_article`, `get_article_text`, `get_article_pdf`, `search_project_text`, `get_template`, `get_extractions`;
   - write tools: `update_project_details` and `edit_template_draft` (upstream: `backend/app/api/mcp/tools/`);
-  - setup guide for Claude Code and other clients: `docs/how-to/connect-an-ai-agent.md:16-39`, `:117-129`, `:165`.
+  - setup guide for Claude Code and other clients: `docs/how-to/connect-an-ai-agent.md:16-39`, `:117-129`, `:165`;
+  - only clients that can send an `Authorization` header are supported (Claude Code, Cursor, VS Code, Gemini CLI, Codex, Windsurf). Web chat connectors such as claude.ai and ChatGPT need OAuth and are not supported (`docs/how-to/connect-an-ai-agent.md:11-14`);
+  - an agent cannot write extraction values, start an AI extraction run or upload a PDF (`docs/how-to/connect-an-ai-agent.md:154-161`).
 - **Excel exports** of extraction and quality assessment, JWT authenticated (upstream: `backend/app/api/v1/endpoints/extraction_export.py:62`, `:129-130`).
 
 **What this means for the squad (INTEG-12, HUB-17):**
@@ -137,18 +145,20 @@ This matches the REV-11 suggestion: keep PROBAST 2019 for reviews in progress an
 - The `literature-review` pipeline in the ai-lab-hub can read CHARMS extraction and PROBAST results back through `get_extractions`. The tool resolves any project template id without filtering by kind and passes the kind through (upstream: `backend/app/api/mcp/tools/extractions.py:62`, `:71`; `backend/app/services/extraction_agent_read_service.py:552`), so quality-assessment templates appear readable the same way. This was not exercised against a running instance.
 - Tokens are per user, not per project as INTEG-13 proposed. To limit an agent to one review, create a dedicated account that is a member of only that project.
 - The MCP has no screening data and no tool to create articles. Importing the search results stays a human step in the UI (Zotero or RIS), which can serve as one of the squad's human checkpoints.
+- The squad's agents run in Claude Code, which the MCP supports. Whether the hub's desktop app can pass a bearer header to a remote MCP was not checked; a claude.ai connector cannot.
+- INTEG-12 proposed that the squad also push the import and read screening decisions and PRISMA from the app. With the upstream, only the read-back half exists: extraction and assessment values, not screening.
 
 ## 7. What the fork has that could go upstream
 
 | Item | Where in the fork | Upstream status | Worth offering? |
 |---|---|---|---|
-| Startup guard against an empty or published `ENCRYPTION_KEY` [REV-16] | `backend/app/core/config.py:15-24`, `:118-140`; `backend/app/main.py:68` | Upstream still ships the published default (upstream: `backend/app/core/config.py:205`) and derives keys from it without a guard (upstream: `backend/app/core/security.py:370`) | Yes. Small, independent, security relevant |
+| Startup guard against an empty or published `ENCRYPTION_KEY`, and the `.env.example` fix [REV-16] | `backend/app/core/config.py:15-24`, `:118-140`; `backend/app/main.py:68`; `.env.example:35-40` | Upstream still ships the published default (upstream: `backend/app/core/config.py:205`, `backend/.env.example:43`) and derives keys from it without a guard (upstream: `backend/app/core/security.py:370`). Its root `.env.example:47` still documents `ZOTERO_ENCRYPTION_KEY`, which no code reads | Yes. Small, independent, security relevant |
 | Scopus CSV normalizer | `backend/app/services/article_source_normalization.py:180-256` | Planned in spec `:584-594` under a new `imports/` module, with papaparse on the frontend | Maybe, as part of the imports module, rewritten to the spec's API and dedup |
 | CHARMS template fields specific to endocarditis [REV-10] | Same issue in the fork | Also upstream (upstream: `backend/app/seed.py:602-604`) | Yes, as an issue, not code |
 | Screening UI sketches | Branch `frontend/screening-ui-sketches-from-pr7`, commit `234d4fe` | Already proposed as upstream PR #37 (2026-05-03), not in `dev`; the spec designs its own UI (spec `:427-580`) | Already offered |
 | Screening backend and PRISMA | See sections 2 and 3 | Rejected design; greenfield spec instead | No, not as is. Implementing the upstream spec is the path (section 10, scenario B) |
 | PDF import with AI metadata | See section 2 | Deferred to the AI phase (spec `:625-631`) | Later, if upstream reopens the AI phase |
-| September 2026 fixes: membership checks, RLS on screening tables, PDF storage key checks, tests, strict typing [REV-01, REV-02, REV-03, REV-06] | 43 commits, starting at `d6d8378` | Mostly on endpoints and services the upstream deleted (section 8); the upstream has its own scope layer (upstream: `backend/app/api/deps/scope.py`) and a membership check in its PR template | No. Useful only while the fork lives |
+| Other September 2026 fixes: membership checks, RLS on screening tables, PDF storage key checks, backend CI baseline, tests, strict typing [REV-01, REV-02, REV-03, REV-06, and REV-05 in part] | 43 commits, starting at `d6d8378` | Mostly on endpoints and services the upstream deleted (section 8); the upstream has its own scope layer (upstream: `backend/app/api/deps/scope.py`) and a membership check in its PR template | No. Useful only while the fork lives |
 
 ## 8. Distance between fork and upstream
 
@@ -157,7 +167,7 @@ How it was estimated: commit counts come from the metadata-only upstream clone a
 **Commits.**
 
 - **Upstream:** 1,030 commits since the fork point (`git rev-list --count 997cbd9..cea4c26`), 987 of them not merges. The upstream maintainer wrote 1,003; dependabot 25, others 2. `dev` has 1,139 commits in total, so the fork point sits at about commit 109.
-- **Upstream by month since the fork point:** April 188, May 280, June 180, July 67, August 165, September 149. The pace has not slowed.
+- **Upstream by month since the fork point (author date):** March 1, April 188, May 280, June 180, July 67, August 165, September 149. The pace has not slowed.
 - **Upstream diff since the fork point:** 2,876 files changed, +561,566 and -91,759 lines. In `backend/app` and `frontend` alone: 1,628 files, +213,056 and -72,408.
 - **Fork:** 50 commits since the fork point (45 not merges):
   - `43fdc69` and `68397ea` (March and April 2026) are the lab's feature work, 5,228 added lines in 39 files. That is the "5,228-line change" the upstream spec rejects.
@@ -167,14 +177,15 @@ How it was estimated: commit counts come from the metadata-only upstream clone a
 **PRs sent upstream.**
 
 - PR #7 head is `a16b581`, the fork's merge of `43fdc69` and `68397ea`. Those commits are in neither upstream `dev` nor `main`, and the upstream roadmap calls it "the closed PR #7" (upstream: `docs/ROADMAP.md:44`).
-- PR #37 head is `234d4fe` (screening UI sketches). It is not in `dev`, and it has no `refs/pull/37/merge`, so it is closed or conflicting.
+- PR #37 head is `234d4fe` (screening UI sketches, 2026-05-03), branched from upstream `dev` at `cace104` (2026-05-01). It is not in `dev` or `main`.
+- `git ls-remote` on the upstream lists `refs/pull/7/head` and `refs/pull/37/head` but no `refs/pull/*/merge` for either, so neither is an open, mergeable PR.
 - The fork's `fix/ci-secrets-in-job-level-if` (`7d0c564`) is not an upstream object.
 
 **Structure.**
 
 - **Tracked files:** 766 in the fork, 2,607 upstream. They share 341 paths, and only 50 of those are byte-identical. There are 425 fork-only paths and 2,266 upstream-only paths.
-- **Code size:** Python in `backend/app` is 25,377 lines in the fork and 59,160 upstream. Non-test TypeScript in `frontend` is 79,036 and 99,884. Files under `backend/tests`: 59 in the fork, 509 upstream.
-- **Merge surface:** the fork modified 123 files that existed at the fork point. Since then, the upstream has modified 88 of them and deleted or renamed the other 35. None is untouched. The deleted files include the modules the fork's work sits on:
+- **Code size:** Python in `backend/app` is 25,377 lines in the fork and 59,160 upstream. TypeScript in `frontend`, without `*.test.*` files, is about 79,000 and 100,000. Files under `backend/tests`: 59 in the fork, 509 upstream.
+- **Merge surface:** the fork modified 123 files that existed at the fork point. Since then, the upstream has changed 85 of them in place, moved 3 (the first migrations, into `versions/archive/`, with edits) and deleted the other 35. None is untouched. The deleted files include the modules the fork's work sits on:
   - endpoints `ai_assessment.py`, `model_extraction.py`, `project_assessment_instruments.py`, `user_api_keys.py`;
   - models `assessment.py`, `user_api_key.py`;
   - services `ai_assessment_service.py`, `model_extraction_service.py`, `project_assessment_instrument_service.py`, `api_key_service.py`, `openai_service.py`, `pdf_processor.py`.
@@ -198,10 +209,10 @@ Both sides are `AGPL-3.0-only` (fork: `LICENSE`, `LICENSE.txt`, `COPYRIGHT.txt`;
    - Add one for the lab's contributions.
    - The whole work stays AGPL-3.0-only. The lab's default license (MIT, LABDAPS) does not apply to this repository. Lab-authored files can also be offered under another license elsewhere, but not inside this combined work.
 5. **No extra restrictions (section 7), and termination on violation (section 8).** Rights are restored if a violation is fixed within 30 days of the first notice.
-6. **Do not present the fork as the upstream.** This is not a license clause, but section 7(e) lets licensors withhold trademark rights, and the upstream now brands itself as Prumo. The fork should carry its own name in the deployed UI and README. Several fork files still send people upstream:
+6. **Do not present the fork as the upstream.** This is not a license clause. Section 7(f) lets licensors decline trademark rights, 7(c) lets them forbid misrepresenting the origin of their material, and 7(d) lets them require modified versions to be marked as different from the original (fork: `LICENSE:316-360`). The upstream `LICENSE` adds none of these terms (it is byte-identical to the fork's), but trademark law applies anyway, and the upstream now brands itself as Prumo. The fork should carry its own name in the deployed UI and README. Several fork files still send people upstream:
    - `README.md:38` and `:75` tell readers to clone `raphaelfh/review-hub-fastapi`;
    - `SECURITY.md:10` and `CODE_OF_CONDUCT.md:63` send vulnerability reports to the upstream.
-7. **The CLA only matters if the lab contributes.** At the fork point, the upstream shipped `docs/legal/CLA.md`, still present in the fork. It grants the maintainer a perpetual right to sublicense contributions, including under proprietary licenses (fork: `docs/legal/CLA.md`, sections 1 and 4). It does not bind the lab's own fork. The upstream tree at `cea4c26` has no CLA file and no CLA reference. Ask whether one is still required before contributing (scenario B).
+7. **The CLA only matters if the lab contributes.** At the fork point, the upstream shipped `docs/legal/CLA.md`, still present in the fork. It grants the maintainer a perpetual right to sublicense contributions, including under proprietary licenses (fork: `docs/legal/CLA.md`, sections 1 and 4). It does not bind the lab's own fork. The upstream tree at `cea4c26` has no CLA file (`docs/legal/` is gone) and nothing in `.github/` mentions one. The only trace is an archived plan whose task asked the maintainer to either move the CLA to `.github/CLA.md` or delete it (upstream: `docs/superpowers/plans/archive/2026-06-10-shipped-sweep/2026-05-24-documentation-overhaul-2026.md:803-816`); neither file exists, which points to deletion. Still ask before contributing (scenario B).
 
 ## 10. Recommendation: three scenarios and their cost
 
@@ -227,16 +238,17 @@ Effort sizes are estimates, not measurements.
 
 - **PR #7 cannot be revived.** Its design was rejected (spec `:32`), every pre-existing file it touched has changed or disappeared upstream, and the migration chains are incompatible (section 8).
 - **Realistic path: implement the upstream's own screening spec (phase alpha)**, in upstream conventions (English, Conventional Commits, tests, the membership checklist in the upstream PR template). Agree the scope first in an upstream issue.
+- **Why it may be welcome.** The upstream maintainer wrote the screening spec against the lab's fork and kept the lab's UI sketches (section 2). Screening is on the roadmap as designed and not started (upstream: `docs/ROADMAP.md:36-45`), so an offer to build it is an offer of labor on a designed item, not a new design.
 - **Size.** The spec has 9 new tables (8 for screening plus an AI usage log, spec `:100-236`), 7 services in v1 (`:331-347`), 37 endpoints (`:354-416`), a keyboard-driven UI, fuzzy dedup, PubMed and Unpaywall, plus the PR #7 regression suite. The lab's narrower first attempt was 5,228 lines. Expect several person-weeks, plus upstream review time.
-- **Small contributions available now (days):** the `ENCRYPTION_KEY` guard, and an issue about the endocarditis fields in the global CHARMS template (section 7).
-- **Cost:** medium to large, and the upstream may decline again. Clear up the CLA question first.
+- **Small contributions available now (days):** the `ENCRYPTION_KEY` guard with the `.env.example` fix, and an issue about the endocarditis fields in the global CHARMS template (section 7).
+- **Cost:** medium to large, and the upstream may decline again. Clear up the CLA question first (section 9, item 7).
 - **Benefit:** screening maintained upstream, in the same tool as extraction and PROBAST, with no fork to carry.
 
 ### C. Hard fork, with the AGPL obligations
 
 - **Work.**
   - In the fork, fix REV-07, REV-09 and REV-11 (size M each in the review) and INTEG-13 (size G).
-  - Also fix REV-06, REV-08, REV-10, REV-14 and REV-15 (size P each).
+  - Also fix the smaller findings still open in the fork: REV-04, REV-08, REV-10, REV-14, REV-15 and REV-17 (size P each). REV-06 (stale tests) is already fixed by the September commits. REV-05 is fixed only on the backend: the frontend lint step still ends in `|| true` and there is no `uv.lock` (fork: `.github/workflows/ci.yml:166`, `:34`).
   - Maintain security alone.
   - Much of this rebuilds what the upstream already has, in an architecture the fork can no longer take fixes from: only 50 of 341 shared paths are identical, the migrations were squashed, and the base modules were deleted.
 - **AGPL compliance (section 9):** source link in the UI, modification notice, README and SECURITY rewritten, own name, tagged deploys. Small once, plus discipline on every deploy.
@@ -258,7 +270,8 @@ What would change this: the lab's reviews need in-app dual screening now and can
 ## 11. Not verified
 
 - Whether the fork is deployed (Render, Vercel) and whether it holds real review data.
-- The GitHub-side state of upstream PRs #7 and #37 (API not available in this session). PR #7's closure comes from the upstream roadmap.
+- The GitHub-side state of upstream PRs #7 and #37 (API not available in this session; a second attempt during verification was also refused). PR #7's closure comes from the upstream roadmap; for both, the refs show only that neither is open and mergeable.
+- Whether the ai-lab-hub desktop app can connect to a remote MCP with a bearer header.
 - Whether the upstream still requires a CLA through a bot on PRs.
 - The upstream MCP and exports were read, not run.
 - The terms of use and data location of the upstream's hosted app.
