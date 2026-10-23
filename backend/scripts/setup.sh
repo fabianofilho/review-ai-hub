@@ -89,9 +89,6 @@ DATABASE_URL=postgresql://postgres:postgres@localhost:54322/postgres
 OPENAI_API_KEY=sk-...
 # LLM_DEFAULT_MODEL — code default is gpt-5.6-luna; see app/core/config.py
 
-# Security
-ENCRYPTION_KEY=sua-chave-de-criptografia-32-caracteres
-
 # Rate Limiting
 RATE_LIMIT_PER_MINUTE=60
 

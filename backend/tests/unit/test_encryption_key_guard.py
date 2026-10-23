@@ -2,12 +2,17 @@
 
 from __future__ import annotations
 
-import pytest
+from pathlib import Path
 
-from app.core.config import Settings, settings
+import pytest
+from celery.signals import worker_init
+
+from app.core.config import settings
 from app.core.security import check_encryption_key
 
-_DEFAULT_KEY = Settings.model_fields["ENCRYPTION_KEY"].default
+# The literal shipped in backend/.env.example, not the Settings default: the
+# test must fail if the two drift apart.
+_DEFAULT_KEY = "review_hub_default_key_change_me_in_production"
 
 
 @pytest.mark.parametrize(
@@ -47,9 +52,43 @@ def test_check_encryption_key(
         check_encryption_key()
 
 
-def test_placeholder_property_tracks_the_field_default(monkeypatch: pytest.MonkeyPatch) -> None:
+def test_placeholder_property_matches_the_shipped_literal(monkeypatch: pytest.MonkeyPatch) -> None:
     monkeypatch.setattr(settings, "ENCRYPTION_KEY", f" {_DEFAULT_KEY} ")
     assert settings.encryption_key_is_placeholder is True
 
     monkeypatch.setattr(settings, "ENCRYPTION_KEY", "real-secret")
     assert settings.encryption_key_is_placeholder is False
+
+
+def test_env_example_ships_the_literal_the_guard_refuses() -> None:
+    env_example = Path(__file__).resolve().parents[2] / ".env.example"
+    assert f'ENCRYPTION_KEY="{_DEFAULT_KEY}"' in env_example.read_text()
+
+
+async def test_web_lifespan_refuses_to_boot_with_the_placeholder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Driven directly: TestClient's portal turns the SystemExit into a cancellation."""
+    from app.main import app, lifespan
+
+    monkeypatch.setattr(settings, "ENCRYPTION_KEY", _DEFAULT_KEY)
+    monkeypatch.setattr(settings, "SUPABASE_ENV", None)
+
+    with pytest.raises(SystemExit) as exc:
+        async with lifespan(app):
+            pass
+    assert exc.value.code == 1
+
+
+def test_worker_init_refuses_to_boot_with_the_placeholder(
+    monkeypatch: pytest.MonkeyPatch,
+) -> None:
+    """Celery's ``Signal.send`` swallows ``Exception`` but not ``SystemExit``."""
+    import app.worker.celery_app  # noqa: F401  (registers the handler)
+
+    monkeypatch.setattr(settings, "ENCRYPTION_KEY", _DEFAULT_KEY)
+    monkeypatch.setattr(settings, "SUPABASE_ENV", None)
+
+    with pytest.raises(SystemExit) as exc:
+        worker_init.send(sender=None)
+    assert exc.value.code == 1

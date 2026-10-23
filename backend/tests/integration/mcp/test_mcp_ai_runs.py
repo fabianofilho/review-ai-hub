@@ -18,7 +18,6 @@ from sqlalchemy.exc import DBAPIError
 from sqlalchemy.ext.asyncio import AsyncSession
 
 from app.api.mcp import session as mcp_session
-from app.core.config import Settings, settings
 from app.models.extraction_attempt import ExtractionAttempt
 from app.services.extraction_batch_service import ExtractionBatchService
 from app.utils.compact_json import RESULT_CAP, compact_json
@@ -253,23 +252,6 @@ async def test_one_hundred_articles_fit_the_result_cap(
     assert all(len(row["title"]) <= 80 for row in plan["articles"])
     assert len(compact_json(plan)) <= RESULT_CAP
     assert len(plan["plan_token"]) <= 4096
-
-
-async def test_placeholder_key_outside_local_mints_nothing(
-    mcp_client, pat_primary_rw_ai_run, db_session: AsyncSession, monkeypatch: pytest.MonkeyPatch
-) -> None:
-    monkeypatch.setattr(settings, "ENCRYPTION_KEY", Settings.model_fields["ENCRYPTION_KEY"].default)
-    monkeypatch.setattr(settings, "SUPABASE_ENV", None)
-    await _policy(db_session)
-    article = await _article(db_session)
-
-    plan = structured(
-        await call_tool(mcp_client, pat_primary_rw_ai_run, "plan_ai_run", _args(article))
-    )
-
-    assert plan["blockers"] == []
-    assert plan["can_start"] is False
-    assert plan["plan_token"] is None and plan["expires_at"] is None
 
 
 async def test_hints_are_read_only(mcp_client, pat_primary_rw_ai_run) -> None:

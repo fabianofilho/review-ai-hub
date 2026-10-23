@@ -206,7 +206,7 @@ async def plan_ai_run(
             untrusted_fields=["templates[].name"],
         ) from exc
 
-    can_start = not plan.blockers and ai_run_plan_token.minting_allowed()
+    can_start = not plan.blockers
     token = expires_at = confirm = confirmation = None
     if can_start and plan.payer is not None and plan.engine is not None:
         iat = int(now.timestamp())

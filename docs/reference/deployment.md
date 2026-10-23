@@ -75,13 +75,13 @@ prevents this in CI, but the log event is the runtime safety net.
 
 ## Environment variables
 
-There is no tracked env template — env files match `.gitignore` line 21 (`.env.*`). Two hosts, two requirement sets: the **Railway (backend)** tables immediately below, and the **Vercel (frontend)** subsection further down (the `VITE_` prefix rule makes them genuinely different). These tables are the canonical reference; paste the values into the Railway dashboard or use the Railway CLI to set them.
+The tracked templates are `backend/.env.example` and the root `.env.example`; real env files match `.gitignore` line 21 (`.env.*`). Two hosts, two requirement sets: the **Railway (backend)** tables immediately below, and the **Vercel (frontend)** subsection further down (the `VITE_` prefix rule makes them genuinely different). These tables are the canonical reference; paste the values into the Railway dashboard or use the Railway CLI to set them.
 
 ### Shared across all services
 
 | Key | Source |
 | --- | --- |
-| `ENCRYPTION_KEY` | rotated by hand; MUST be the same value across web + worker (Zotero credentials are cross-process). Both refuse to boot while it is blank or the `.env.example` placeholder, unless `SUPABASE_ENV=local` (`app/core/security.py::check_encryption_key`) |
+| `ENCRYPTION_KEY` | set once, never rotate (encrypted Zotero and LLM-connection keys would become unreadable); MUST be the same value across web + worker (Zotero credentials are cross-process). Both refuse to boot while it is blank or the `.env.example` placeholder, unless `SUPABASE_ENV=local` (`app/core/security.py::check_encryption_key`) |
 | `SUPABASE_URL` | Supabase project settings |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase project settings |
 | `DATABASE_URL` | Supabase Session pooler (used for app traffic; see [Reaching prod Postgres](#reaching-prod-postgres)) |
