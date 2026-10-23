@@ -68,9 +68,22 @@ def test_env_example_ships_the_literal_the_guard_refuses() -> None:
 async def test_web_lifespan_refuses_to_boot_with_the_placeholder(
     monkeypatch: pytest.MonkeyPatch,
 ) -> None:
-    """Driven directly: TestClient's portal turns the SystemExit into a cancellation."""
+    """Driven directly: TestClient's portal turns the SystemExit into a cancellation.
+
+    The lifespan's logging and observability setup is process-global (structlog
+    caches loggers on first use), so it is stubbed out to keep later tests'
+    log capture intact. The migration check fails the test if reached: the
+    SystemExit must come from the key guard, not from pending migrations.
+    """
+    import app.main as main
     from app.main import app, lifespan
 
+    monkeypatch.setattr(main, "configure_observability", lambda **_: None)
+    monkeypatch.setattr(main, "configure_logging", lambda: None)
+    monkeypatch.setattr(main.logfire, "instrument_fastapi", lambda _app: None)
+    monkeypatch.setattr(
+        main, "check_pending_migrations", lambda: pytest.fail("key guard did not refuse")
+    )
     monkeypatch.setattr(settings, "ENCRYPTION_KEY", _DEFAULT_KEY)
     monkeypatch.setattr(settings, "SUPABASE_ENV", None)
 
