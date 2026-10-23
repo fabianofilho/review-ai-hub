@@ -1,6 +1,6 @@
 ---
 status: stable
-last_reviewed: 2026-10-14
+last_reviewed: 2026-10-23
 owner: '@raphaelfh'
 ---
 
@@ -81,7 +81,7 @@ There is no tracked env template — env files match `.gitignore` line 21 (`.env
 
 | Key | Source |
 | --- | --- |
-| `ENCRYPTION_KEY` | rotated by hand; MUST be the same value across web + worker (Zotero credentials are cross-process) |
+| `ENCRYPTION_KEY` | rotated by hand; MUST be the same value across web + worker (Zotero credentials are cross-process). Both refuse to boot while it is blank or the `.env.example` placeholder, unless `SUPABASE_ENV=local` (`app/core/security.py::check_encryption_key`) |
 | `SUPABASE_URL` | Supabase project settings |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase project settings |
 | `DATABASE_URL` | Supabase Session pooler (used for app traffic; see [Reaching prod Postgres](#reaching-prod-postgres)) |

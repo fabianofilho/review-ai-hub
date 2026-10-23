@@ -182,7 +182,20 @@ celery_app.Task = LoggedTask
 # so a NotRegistered branch in on_failure alone would be dead code in
 # production. Keep both paths: the signal is the runtime hook, the
 # on_failure branch is defense in depth in case Celery changes routing.
-from celery.signals import task_unknown, worker_process_init  # noqa: E402
+from celery.signals import task_unknown, worker_init, worker_process_init  # noqa: E402
+
+
+@worker_init.connect(weak=False)
+def _refuse_placeholder_encryption_key(**_kwargs: Any) -> None:
+    """Stop the worker before it forks if ``ENCRYPTION_KEY`` is the placeholder.
+
+    Runs in the parent (``worker_init``): a SystemExit in a forked child would
+    only make the parent respawn it. Celery's signal dispatch catches
+    ``Exception``, not ``SystemExit``, so the exit reaches the worker boot.
+    """
+    from app.core.security import check_encryption_key
+
+    check_encryption_key()
 
 
 @worker_process_init.connect(weak=False)

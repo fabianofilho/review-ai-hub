@@ -351,6 +351,23 @@ def require_aal2(user: TokenPayload = Depends(get_current_user)) -> TokenPayload
 # =================== ENCRYPTION UTILS ===================
 
 
+def check_encryption_key() -> None:
+    """
+    Refuse to boot with a blank or published ``ENCRYPTION_KEY`` outside local dev.
+
+    Every per-user and per-row key (Zotero credentials, LLM connections, AI-run
+    plan tokens) derives from it, so the shipped default would let anyone with
+    the source decrypt them. Exits with SystemExit(1), like the pending-migration
+    check, so the web service and the worker fail loudly instead of serving.
+    """
+    if settings.encryption_key_is_placeholder and settings.supabase_env != "local":
+        logger.error(
+            "placeholder_encryption_key",
+            hint="set ENCRYPTION_KEY to a long random secret, or SUPABASE_ENV=local for local dev",
+        )
+        raise SystemExit(1)
+
+
 def derive_encryption_key(user_id: str) -> bytes:
     """
     Deriva key de criptografia unica por user.

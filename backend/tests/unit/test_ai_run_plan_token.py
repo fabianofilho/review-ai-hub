@@ -84,16 +84,23 @@ def test_ttl_is_thirty_minutes() -> None:
     assert ai_run_plan_token.TOKEN_TTL.total_seconds() == 30 * 60
 
 
+_DEFAULT_KEY = Settings.model_fields["ENCRYPTION_KEY"].default
+
+
 @pytest.mark.parametrize(
-    ("key_is_default", "env", "allowed"),
-    [(True, None, False), (True, "local", True), (False, None, True)],
-    ids=["placeholder-production", "placeholder-local", "real-key"],
+    ("key", "env", "allowed"),
+    [
+        (_DEFAULT_KEY, None, False),
+        (_DEFAULT_KEY, "local", True),
+        ("  ", None, False),
+        ("real-secret", None, True),
+    ],
+    ids=["placeholder-production", "placeholder-local", "blank-production", "real-key"],
 )
 def test_minting_allowed(
-    monkeypatch: pytest.MonkeyPatch, key_is_default: bool, env: str | None, allowed: bool
+    monkeypatch: pytest.MonkeyPatch, key: str, env: str | None, allowed: bool
 ) -> None:
-    default = Settings.model_fields["ENCRYPTION_KEY"].default
-    monkeypatch.setattr(settings, "ENCRYPTION_KEY", default if key_is_default else "real-secret")
+    monkeypatch.setattr(settings, "ENCRYPTION_KEY", key)
     monkeypatch.setattr(settings, "SUPABASE_ENV", env)
 
     assert minting_allowed() is allowed

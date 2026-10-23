@@ -284,6 +284,12 @@ class Settings(BaseSettings):
         value = (self.SUPABASE_ENV or "").strip().lower()
         return "local" if value == "local" else "production"
 
+    @property
+    def encryption_key_is_placeholder(self) -> bool:
+        """True while ``ENCRYPTION_KEY`` is blank or the published default."""
+        key = self.ENCRYPTION_KEY.strip()
+        return not key or key == type(self).model_fields["ENCRYPTION_KEY"].default
+
 
 @lru_cache
 def get_settings() -> Settings:

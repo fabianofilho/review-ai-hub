@@ -31,7 +31,7 @@ from app.core.deps import AsyncSessionLocal, get_supabase_client
 from app.core.error_handler import register_exception_handlers
 from app.core.logging import configure_logging, get_logger
 from app.core.middleware import PathScopedCORSMiddleware, register_middlewares
-from app.core.security import get_jwks
+from app.core.security import check_encryption_key, get_jwks
 from app.llm.observability import configure_observability
 from app.utils.rate_limiter import limiter, log_storage_backend
 
@@ -81,6 +81,7 @@ async def lifespan(app: FastAPI) -> AsyncGenerator[None, None]:
     configure_observability(service_name="prumo-api")
     configure_logging()
     logfire.instrument_fastapi(app)
+    check_encryption_key()
     check_pending_migrations()
     logger.info(
         "application_startup",

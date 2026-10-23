@@ -20,7 +20,7 @@ from typing import Any, Literal
 from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.kdf.hkdf import HKDF
 
-from app.core.config import Settings, settings
+from app.core.config import settings
 
 TOKEN_VERSION = "aip1"
 TOKEN_TTL = timedelta(minutes=30)
@@ -38,8 +38,7 @@ class PlanTokenError(Exception):
 
 def minting_allowed() -> bool:
     """False while ``ENCRYPTION_KEY`` is still the placeholder outside local dev."""
-    placeholder = Settings.model_fields["ENCRYPTION_KEY"].default == settings.ENCRYPTION_KEY
-    return not placeholder or settings.supabase_env == "local"
+    return not settings.encryption_key_is_placeholder or settings.supabase_env == "local"
 
 
 def _key() -> bytes:
