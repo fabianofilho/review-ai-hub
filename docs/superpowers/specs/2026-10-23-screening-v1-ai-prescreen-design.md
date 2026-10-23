@@ -410,6 +410,8 @@ Still open:
    than extraction's separate reviewer-states table, is the proposer's call
    (one table per concept instead of two). Say so if you want the
    extraction shape mirrored.
+4. `ensure_project_manager` on the PubMed import (§4.1) is the proposer's
+   call; the Zotero import checks membership only.
 
 ## 14. References
 
