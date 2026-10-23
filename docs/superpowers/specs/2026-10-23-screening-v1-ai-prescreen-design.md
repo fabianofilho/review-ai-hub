@@ -103,24 +103,28 @@ for screening · AI auto-exclusion of any kind.
 PubMed CSV / pasted PMIDs
   → browser: papaparse, keep the PMID column (≤ 10,000 PMIDs, ≤ 25 MB)
   → POST /api/v1/projects/{project_id}/imports/pubmed  {pmids[], dry_run?}
-      backend: efetch in batches of 200 (≤ 3 req/s, ≤ 10 with NCBI_API_KEY),
-               normalize_pubmed_record → CanonicalArticlePayload,
-               upsert_by_canonical_identity per record
-      ← {received, inserted, updated, duplicates_in_request, not_found[], failed}
+      dry_run: inline, reads only (efetch + identity lookup), returns the counts
+      otherwise: creates the article_sync_runs row, enqueues the import task in
+                 app.worker.tasks.import_tasks (as the Zotero import does), and
+                 returns the sync run id; the dialog polls the sync run
+      task: efetch in batches of 200 (≤ 3 req/s, ≤ 10 with NCBI_API_KEY),
+            normalize_pubmed_record → CanonicalArticlePayload,
+            upsert_by_canonical_identity per record
 ```
 
 - **Idempotent.** Posting the same PMIDs twice updates the same articles and
   inserts nothing new. `dry_run = true` returns the counts and writes
   nothing, so the dialog can show what will happen before the user confirms.
-- One `article_sync_runs` row per non-dry-run call: `source = 'pubmed'`,
-  `total_received`, `persisted`, `updated`, `skipped` (duplicates in the
-  request), `failed`, and `failure_summary` with the PMIDs NCBI did not
-  return.
-- Runs inline for ≤ 1,000 PMIDs; above that, the same service runs in the
-  existing import Celery queue and the dialog polls the sync run (author's
-  call; 1,976 PMIDs at 200 per call and 3 req/s is ~4 s of NCBI time, so
-  inline may well be enough).
-- Role: `ensure_project_manager`, as the Zotero import.
+- One `article_sync_runs` row per non-dry-run call (`source = 'pubmed'`;
+  the column is free text, no CHECK to widen), with its counts, and one
+  `article_sync_events` row per received PMID: `status` in
+  `inserted | updated | duplicate_in_request | not_found | failed`,
+  `article_id` when resolved, `event_payload = {pmid}`. PRISMA reads these
+  events (§8).
+- One path for every size: the task is the only writer.
+- Role: `ensure_project_manager` (author's call; the Zotero import checks
+  membership only, but a bulk PubMed import sets the screening
+  denominator).
 
 ### 4.2 Normalization and identity
 
@@ -245,10 +249,13 @@ No gate and no calibration state. Instead:
   are a random sample of the enrolled set, without drawing one.
 - While `ai_visible` is false, reviewers decide without seeing suggestions;
   the server records `ai_visible_at_decision = false`.
-- `GET /projects/{id}/screening/calibration` compares the published
-  outcomes of assignments whose decisions were all made with AI hidden
-  against the AI suggestions for the same assignments, grouped by (pinned
-  engine, prompt version, protocol revision). Positive = include or maybe.
+- `GET /projects/{id}/screening/calibration` takes the **longest prefix of
+  the queue order** in which every assignment has a published outcome whose
+  decisions were all made with AI hidden, and compares those outcomes with
+  the AI suggestions for the same assignments, grouped by (pinned engine,
+  prompt version, protocol revision). Using the prefix, not every AI-hidden
+  decision, keeps the sample random even though the API lets a reviewer
+  decide an assignment out of queue order. Positive = include or maybe.
   It returns recall and specificity with 95% Wilson intervals, the number of
   human includes they rest on, how many human includes the display rule
   would have shown as `exclude`, and the disagreements with both sides'
@@ -276,9 +283,14 @@ wide, which is why the report always shows the count it rests on.
   list, where a project arbitrator adopts one decision or overrides with a
   rationale (`arbitrated`). Conflict detection reads current decisions
   ordered by `(created_at, id)`.
-- Changing a decision appends a new row and supersedes the old one; if an
-  outcome had published, it is superseded too and the assignment goes back
-  to consensus (solo: the new decision publishes a new outcome).
+- Changing a decision appends a new row and supersedes the reviewer's
+  previous one. What happens to a published outcome depends on its source:
+  - `solo`: the new decision publishes a new outcome that supersedes it.
+  - `consensus`: the outcome is superseded and the assignment goes back to
+    consensus with the current decisions.
+  - `arbitrated`: the ruling stands. Only an arbitrator supersedes it, by
+    arbitrating again; a reviewer's later change is recorded but does not
+    reopen it (the arbitrator-only reopen of ADR 0017).
 - Blind mode: the read path returns other reviewers' current decisions only
   after the outcome publishes (the reveal idea of ADR 0012, applied in the
   screening read service).
@@ -287,11 +299,14 @@ wide, which is why the report always shows the count it rests on.
 
 Read-only, derived:
 
-- **Identified**: enrolled assignments grouped by
-  `lower(articles.ingestion_source)`, so RIS, Zotero and manual articles
-  count too.
-- **Duplicates removed**: the `updated` + `skipped` counts of the project's
-  `article_sync_runs`.
+- **Identified**: per source, distinct external ids received (PubMed:
+  distinct PMIDs in the project's `pubmed` sync events), plus enrolled
+  articles from sources without import events (RIS, manual), grouped by
+  `lower(articles.ingestion_source)`.
+- **Duplicates removed**: identified records minus the distinct articles
+  they resolved to. Re-importing the same file adds no identified records
+  (ids are distinct) and so no duplicates: it is a re-run, not new
+  identification. A Zotero re-sync's `updated` count is not a duplicate.
 - **Screened / excluded / sought for retrieval**: current outcomes at
   title/abstract (excluded with reason counts; sought = include + maybe).
 
