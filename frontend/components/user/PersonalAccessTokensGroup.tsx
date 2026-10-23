@@ -5,7 +5,7 @@
  * `McpClientSnippetSelector` (Task 4b) with the real secret.
  */
 import {useEffect, useState, type MouseEvent} from 'react';
-import {Loader2, Plus, Trash2} from 'lucide-react';
+import {ChevronRight, Loader2, Plus, Trash2} from 'lucide-react';
 import {toast} from 'sonner';
 import {useForm, useWatch, type Control} from 'react-hook-form';
 import {zodResolver} from '@hookform/resolvers/zod';
@@ -26,6 +26,7 @@ import {IconButton} from '@/components/patterns/IconButton';
 import {Badge} from '@/components/ui/badge';
 import {Button} from '@/components/ui/button';
 import {Checkbox} from '@/components/ui/checkbox';
+import {Collapsible, CollapsibleContent, CollapsibleTrigger} from '@/components/ui/collapsible';
 import {Form, FormControl, FormField, FormItem, FormMessage} from '@/components/ui/form';
 import {RadioGroup, RadioGroupItem} from '@/components/ui/radio-group';
 import {Tooltip, TooltipContent, TooltipTrigger} from '@/components/ui/tooltip';
@@ -96,6 +97,18 @@ function ProjectsBadge({ids, projects}: {ids: string[] | null | undefined; proje
   );
 }
 
+/** The date cell: when an active token expires, or when an inactive one stopped working. */
+function dateLabel(row: PersonalAccessTokenRead): string {
+  if (row.status === 'revoked' && row.revoked_at) {
+    return t('personalAccessTokens', 'revokedBadge').replace('{{date}}', formatDate(row.revoked_at));
+  }
+  if (row.status === 'expired') {
+    return t('personalAccessTokens', 'expiredBadge').replace('{{date}}', formatDate(row.expires_at));
+  }
+  return t('personalAccessTokens', 'expiresOn').replace('{{date}}', formatDate(row.expires_at));
+}
+
+/** Every row fills the same five cells, so the columns line up whatever the status. */
 function TokenRow({row, projects}: {row: PersonalAccessTokenRead; projects: ProjectsQuery}) {
   const [open, setOpen] = useState(false);
   const revoke = useRevokeMyToken();
@@ -116,58 +129,90 @@ function TokenRow({row, projects}: {row: PersonalAccessTokenRead; projects: Proj
     <li
       data-muted={row.status !== 'active'}
       className={cn(
-        'flex flex-col gap-1 rounded-md px-2 py-1.5 text-[13px]',
-        '@[30rem]/settings:flex-row @[30rem]/settings:items-center @[30rem]/settings:gap-3 @[30rem]/settings:py-1',
+        'flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md px-2 py-1.5 text-[13px]',
+        '@[36rem]/settings:grid @[36rem]/settings:grid-cols-[minmax(0,8rem)_minmax(0,1fr)_7.5rem_8.5rem_1.75rem] @[36rem]/settings:py-1',
         row.status !== 'active' && 'text-muted-foreground',
       )}
     >
-      <div className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
-        <span className="min-w-[12ch] max-w-full truncate font-medium">{row.name}</span>
+      <span data-col="name" className="min-w-[12ch] max-w-full truncate font-medium @[36rem]/settings:min-w-0" title={row.name}>
+        {row.name}
+      </span>
+      <div data-col="details" className="flex min-w-0 flex-wrap items-center gap-x-2 gap-y-1">
         <code className="shrink-0 text-[12px] text-muted-foreground">{row.token_prefix}…</code>
         <Badge variant="secondary" className="shrink-0">{t('personalAccessTokens', SCOPE_COPY[row.scope])}</Badge>
         {row.ai_run && (
           <Badge variant="secondary" className="shrink-0">{t('personalAccessTokens', 'aiRunsBadge')}</Badge>
         )}
         <ProjectsBadge ids={row.project_ids} projects={projects} />
-        {row.status === 'expired' && (
-          <Badge variant="outline" className="shrink-0">{t('personalAccessTokens', 'expiredBadge').replace('{{date}}', formatDate(row.expires_at))}</Badge>
-        )}
-        {row.status === 'revoked' && row.revoked_at && (
-          <Badge variant="outline" className="shrink-0">{t('personalAccessTokens', 'revokedBadge').replace('{{date}}', formatDate(row.revoked_at))}</Badge>
+      </div>
+      <span data-col="date" className="whitespace-nowrap text-muted-foreground">{dateLabel(row)}</span>
+      <span data-col="last-used" className="whitespace-nowrap text-muted-foreground">
+        {row.last_used_at
+          ? t('personalAccessTokens', 'lastUsed').replace('{{when}}', relativeTime(row.last_used_at))
+          : t('personalAccessTokens', 'neverUsed')}
+      </span>
+      <div data-col="action" className="ml-auto flex items-center justify-end">
+        {row.status === 'active' && (
+          <AlertDialog open={open} onOpenChange={setOpen}>
+            <AlertDialogTrigger asChild>
+              <IconButton label={t('personalAccessTokens', 'revokeAria')} icon={<Trash2 strokeWidth={1.5} />} />
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>{t('personalAccessTokens', 'revokeTitle')}</AlertDialogTitle>
+                <AlertDialogDescription>
+                  {t('personalAccessTokens', 'revokeDescription').replace('{{name}}', row.name)}
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>{t('personalAccessTokens', 'cancel')}</AlertDialogCancel>
+                <AlertDialogAction onClick={onConfirm} disabled={revoke.isPending}>
+                  {revoke.isPending ? t('personalAccessTokens', 'revoking') : t('personalAccessTokens', 'revokeConfirm')}
+                </AlertDialogAction>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
         )}
       </div>
-      {row.status === 'active' && (
-        <div className="flex min-w-0 flex-1 flex-wrap items-center gap-x-3 gap-y-1 text-muted-foreground">
-          <span>{t('personalAccessTokens', 'expiresOn').replace('{{date}}', formatDate(row.expires_at))}</span>
-          <span>
-            {row.last_used_at
-              ? t('personalAccessTokens', 'lastUsed').replace('{{when}}', relativeTime(row.last_used_at))
-              : t('personalAccessTokens', 'neverUsed')}
-          </span>
-          <div className="ml-auto flex items-center gap-1">
-            <AlertDialog open={open} onOpenChange={setOpen}>
-              <AlertDialogTrigger asChild>
-                <IconButton label={t('personalAccessTokens', 'revokeAria')} icon={<Trash2 strokeWidth={1.5} />} />
-              </AlertDialogTrigger>
-              <AlertDialogContent>
-                <AlertDialogHeader>
-                  <AlertDialogTitle>{t('personalAccessTokens', 'revokeTitle')}</AlertDialogTitle>
-                  <AlertDialogDescription>
-                    {t('personalAccessTokens', 'revokeDescription').replace('{{name}}', row.name)}
-                  </AlertDialogDescription>
-                </AlertDialogHeader>
-                <AlertDialogFooter>
-                  <AlertDialogCancel>{t('personalAccessTokens', 'cancel')}</AlertDialogCancel>
-                  <AlertDialogAction onClick={onConfirm} disabled={revoke.isPending}>
-                    {revoke.isPending ? t('personalAccessTokens', 'revoking') : t('personalAccessTokens', 'revokeConfirm')}
-                  </AlertDialogAction>
-                </AlertDialogFooter>
-              </AlertDialogContent>
-            </AlertDialog>
-          </div>
-        </div>
-      )}
     </li>
+  );
+}
+
+/** Revoked and expired tokens stay listed for the audit trail, collapsed out of the way. */
+function TokenList({rows, projects}: {rows: PersonalAccessTokenRead[]; projects: ProjectsQuery}) {
+  const [showInactive, setShowInactive] = useState(false);
+  const active = rows.filter((row) => row.status === 'active');
+  const inactive = rows.filter((row) => row.status !== 'active');
+  return (
+    <>
+      {active.length === 0 ? (
+        <p className="text-[13px] text-muted-foreground">{t('personalAccessTokens', 'listNoActive')}</p>
+      ) : (
+        <ul role="list">
+          {active.map((row) => <TokenRow key={row.id} row={row} projects={projects} />)}
+        </ul>
+      )}
+      {inactive.length > 0 && (
+        <Collapsible open={showInactive} onOpenChange={setShowInactive}>
+          <CollapsibleTrigger asChild>
+            <Button size="sm" variant="ghost" className="text-muted-foreground">
+              <ChevronRight
+                className={cn('mr-1 h-4 w-4 transition-transform duration-75', showInactive && 'rotate-90')}
+                strokeWidth={1.5}
+              />
+              {showInactive
+                ? t('personalAccessTokens', 'inactiveHide')
+                : t('personalAccessTokens', 'inactiveShow').replace('{{n}}', String(inactive.length))}
+            </Button>
+          </CollapsibleTrigger>
+          <CollapsibleContent>
+            <ul role="list">
+              {inactive.map((row) => <TokenRow key={row.id} row={row} projects={projects} />)}
+            </ul>
+          </CollapsibleContent>
+        </Collapsible>
+      )}
+    </>
   );
 }
 
@@ -490,11 +535,7 @@ export function PersonalAccessTokensGroup() {
       )}
 
       {!tokens.isError && tokens.data && tokens.data.length > 0 && (
-        <ul role="list">
-          {tokens.data.map((row) => (
-            <TokenRow key={row.id} row={row} projects={projects} />
-          ))}
-        </ul>
+        <TokenList rows={tokens.data} projects={projects} />
       )}
 
       {createButton}

@@ -101,6 +101,7 @@ describe('PersonalAccessTokensGroup', () => {
     vi.mocked(svc.fetchMyTokens).mockResolvedValue({ok: true, data: [ACTIVE, EXPIRED, REVOKED]});
     renderGroup();
     await waitFor(() => expect(screen.getByText('Claude Code')).toBeInTheDocument());
+    await userEvent.click(screen.getByRole('button', {name: 'Show 2 inactive'}));
 
     const rows = screen.getAllByRole('listitem');
     expect(rows).toHaveLength(3);
@@ -117,14 +118,65 @@ describe('PersonalAccessTokensGroup', () => {
     expect(within(expiredRow).queryByRole('button', {name: t('personalAccessTokens', 'revokeAria')})).not.toBeInTheDocument();
 
     // Narrow widths: the badges wrap under the name instead of squeezing it to "R…".
-    const expiredName = within(expiredRow).getByText('Old agent');
-    expect(expiredName).toHaveClass('min-w-[12ch]');
-    expect(expiredName.parentElement).toHaveClass('flex-wrap');
+    expect(within(expiredRow).getByText('Old agent')).toHaveClass('min-w-[12ch]');
 
     const revokedRow = rows[2];
     expect(revokedRow).toHaveAttribute('data-muted', 'true');
     expect(within(revokedRow).getByText('Revoked 2/3/2026')).toBeInTheDocument();
     expect(within(revokedRow).queryByRole('button', {name: t('personalAccessTokens', 'revokeAria')})).not.toBeInTheDocument();
+  });
+
+  it('rows share one column grid: every status fills the same date, last-used and action cells', async () => {
+    vi.mocked(svc.fetchMyTokens).mockResolvedValue({ok: true, data: [ACTIVE, EXPIRED, REVOKED]});
+    renderGroup();
+    await screen.findByText('Claude Code');
+    await userEvent.click(screen.getByRole('button', {name: 'Show 2 inactive'}));
+
+    const rows = screen.getAllByRole('listitem');
+    const template = (row: HTMLElement) => [...row.classList].find((c) => c.includes('grid-cols-['));
+    expect(template(rows[0])).toBeDefined();
+    for (const row of rows) {
+      expect(template(row)).toBe(template(rows[0]));
+      expect(row.querySelectorAll(':scope > [data-col]')).toHaveLength(5);
+    }
+    const dateCell = (row: HTMLElement) => row.querySelector(':scope > [data-col="date"]');
+    expect(dateCell(rows[0])).toHaveTextContent('Expires 12/1/2026');
+    expect(dateCell(rows[1])).toHaveTextContent('Expired 1/2/2026');
+    expect(dateCell(rows[2])).toHaveTextContent('Revoked 2/3/2026');
+    expect(rows[2].querySelector(':scope > [data-col="last-used"]')).toHaveTextContent(t('personalAccessTokens', 'neverUsed'));
+  });
+
+  it('inactive tokens collapse under a toggle that shows and hides them', async () => {
+    vi.mocked(svc.fetchMyTokens).mockResolvedValue({ok: true, data: [ACTIVE, EXPIRED, REVOKED]});
+    renderGroup();
+    await screen.findByText('Claude Code');
+
+    expect(screen.queryByText('Old agent')).not.toBeInTheDocument();
+    expect(screen.queryByText('Retired agent')).not.toBeInTheDocument();
+    const toggle = screen.getByRole('button', {name: 'Show 2 inactive'});
+    expect(toggle).toHaveAttribute('aria-expanded', 'false');
+
+    await userEvent.click(toggle);
+    expect(screen.getByText('Old agent')).toBeInTheDocument();
+    expect(screen.getByText('Retired agent')).toBeInTheDocument();
+
+    await userEvent.click(screen.getByRole('button', {name: t('personalAccessTokens', 'inactiveHide')}));
+    expect(screen.queryByText('Old agent')).not.toBeInTheDocument();
+  });
+
+  it('only inactive tokens: says there are no active tokens and offers the toggle', async () => {
+    vi.mocked(svc.fetchMyTokens).mockResolvedValue({ok: true, data: [REVOKED]});
+    renderGroup();
+    expect(await screen.findByText(t('personalAccessTokens', 'listNoActive'))).toBeInTheDocument();
+    expect(screen.getByRole('button', {name: 'Show 1 inactive'})).toBeInTheDocument();
+    expect(screen.queryByText(t('personalAccessTokens', 'listEmpty'))).not.toBeInTheDocument();
+  });
+
+  it('no inactive tokens: no toggle', async () => {
+    vi.mocked(svc.fetchMyTokens).mockResolvedValue({ok: true, data: [ACTIVE]});
+    renderGroup();
+    await screen.findByText('Claude Code');
+    expect(screen.queryByRole('button', {name: /inactive/})).not.toBeInTheDocument();
   });
 
   it('create at the token cap: shows the limit copy inline and keeps the dialog open', async () => {

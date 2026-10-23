@@ -91,6 +91,17 @@ describe('AppShell', () => {
         expect(await screen.findByText('hub page')).toBeInTheDocument();
     });
 
+    // jsdom has no layout, so this pins the mechanism: without a positioned
+    // root, an `sr-only` span deep in a scrolled pane takes the viewport as its
+    // containing block, escapes `overflow-hidden`, and stretches the document,
+    // so the window scrolls and drags the sidebar off screen.
+    it('is the containing block for absolutely positioned descendants', async () => {
+        renderAt('/settings');
+
+        const shell = await screen.findByTestId('app-shell');
+        expect(shell).toHaveClass('relative', 'overflow-hidden');
+    });
+
     it('renders the workspace shell on /settings — and the route match yielded no project id', async () => {
         renderAt('/settings');
 

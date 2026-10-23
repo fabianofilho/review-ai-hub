@@ -45,7 +45,7 @@ export const AppShell: React.FC = () => {
       <div
         data-testid="app-shell"
         data-project-id={projectId ?? ''}
-        className="flex h-screen flex-col overflow-hidden bg-background"
+        className="relative flex h-screen flex-col overflow-hidden bg-background"
       >
         <div className="shrink-0">
           <Topbar />
